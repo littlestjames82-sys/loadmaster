@@ -3,6 +3,15 @@
 Newest first. Every entry is work done inside the hackathon window,
 Oct 26 - Nov 4, 2026.
 
+## Oct 26, 2026 - Day 0 (continued)
+
+- SAM prompt matrix: 31 live calls over 5 development photos
+  (docs/SAM_PROMPT_MATRIX.md). Headlines: trailer, wheel, and specific
+  cargo prompts work; straps are invisible to SAM at full-frame
+  distance but read at 0.79 in an anchor close-up, so tie-down counting
+  is designed around close-ups + tap-to-correct; 1 timeout in 31 calls,
+  recovered on retry, so the pipeline retries with backoff.
+
 ## Oct 26, 2026 - Day 0
 
 - Repository created (public, MIT) under littlestjames82-sys.
