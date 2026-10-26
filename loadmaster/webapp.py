@@ -422,8 +422,11 @@ def analyze(
     bed_length_ft: float | None = Form(None),
     load_length_ft: float | None = Form(None),
     weight_lb: float | None = Form(None),
+    report_lang: str = Form("en"),
 ):
     """Run the full pipeline on one uploaded photo."""
+    if report_lang not in ("en", "es"):
+        report_lang = "en"
     started = time.monotonic()
     raw = photo.file.read()
     if not raw:
@@ -484,7 +487,7 @@ def analyze(
             warnings.extend(v_warnings)
             if verdicts:
                 try:
-                    report = write_report(verdicts, inputs)
+                    report = write_report(verdicts, inputs, lang=report_lang)
                 except Exception as exc:  # write_report never raises; belt and braces
                     warnings.append(
                         f"written summary unavailable ({type(exc).__name__}: {exc})"

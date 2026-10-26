@@ -64,8 +64,71 @@ def _clip(text: str, limit: int) -> str:
     return (cut if len(cut) > 40 else text[:limit]) + "."
 
 
-def fallback_report(verdicts: list[dict], inputs: dict | None = None) -> dict:
+_ES = {
+    "headline_fixes": "{n} cosa{s} por corregir antes de que esta carga salga",
+    "headline_pass": "Esta carga pasa todas las revisiones que la foto pudo juzgar",
+    "headline_none_flagged": "Nada marcado, pero {n} revision{es} no se pudo juzgar",
+    "headline_none": "Esta foto no pudo resolver ninguna de las revisiones",
+    "fix_first": "Corrija primero: ",
+    "also_fix": "Tambien corrija: ",
+    "passed": "Aprobado: ",
+    "could_not_tell": "No se pudo determinar: ",
+    "honesty": (
+        "Una foto no puede verificar la tension de las correas, la "
+        "capacidad de los amarres ni el peso de la carga; eso queda "
+        "sin juzgar hasta que se den los numeros."
+    ),
+    "no_verdicts_headline": "Aun no hay veredictos para resumir",
+    "no_verdicts_body": (
+        "Ejecute un analisis con la longitud de la carga para obtener "
+        "los veredictos de las reglas para esta carga."
+    ),
+}
+
+
+def _es_fallback_report(verdicts: list[dict]) -> dict:
+    """Spanish template report. Check names and fixes stay in the
+    engine's words on purpose: the template never invents a
+    translation for a rule citation or a minimum fix."""
+    vs = ordered(verdicts)
+    fixes = [v for v in vs if _status(v) == "CHECK THIS"]
+    passes = [v for v in vs if _status(v) == "PASS"]
+    unknowns = [v for v in vs if _status(v) == "COULD NOT TELL"]
+    if fixes:
+        headline = _ES["headline_fixes"].format(
+            n=len(fixes), s="s" if len(fixes) != 1 else ""
+        )
+    elif passes and not unknowns:
+        headline = _ES["headline_pass"]
+    elif passes:
+        headline = _ES["headline_none_flagged"].format(
+            n=len(unknowns), es="es" if len(unknowns) != 1 else ""
+        )
+    else:
+        headline = _ES["headline_none"]
+    lines: list[str] = []
+    for i, v in enumerate(fixes):
+        lead = _ES["fix_first"] if i == 0 else _ES["also_fix"]
+        detail = v.get("fix") or v.get("finding") or ""
+        lines.append(f"{lead}{check_label(v)}. {_clip(detail, 220)}")
+    if passes:
+        lines.append(
+            _ES["passed"] + ", ".join(check_label(v).lower() for v in passes) + "."
+        )
+    for v in unknowns:
+        lines.append(
+            f"{_ES['could_not_tell']}{check_label(v)}. "
+            + _clip(v.get("finding") or "", 200)
+        )
+    if unknowns:
+        lines.append(_ES["honesty"])
+    return {"headline": headline, "body": "\n".join(lines), "source": "template", "model": None}
+
+
+def fallback_report(verdicts: list[dict], inputs: dict | None = None, lang: str = "en") -> dict:
     """Deterministic summary built only from the verdict list."""
+    if lang == "es":
+        return _es_fallback_report(verdicts)
     vs = ordered(verdicts)
     fixes = [v for v in vs if _status(v) == "CHECK THIS"]
     passes = [v for v in vs if _status(v) == "PASS"]
@@ -114,7 +177,7 @@ def fallback_report(verdicts: list[dict], inputs: dict | None = None) -> dict:
     }
 
 
-def build_prompt(verdicts: list[dict], inputs: dict | None = None) -> str:
+def build_prompt(verdicts: list[dict], inputs: dict | None = None, lang: str = "en") -> str:
     inputs = inputs or {}
     load_bits = []
     if inputs.get("trailer_type"):
@@ -160,6 +223,13 @@ def build_prompt(verdicts: list[dict], inputs: dict | None = None) -> str:
         "told.\n"
         "- No markdown, no bullets, no headings. At most 160 words "
         "after the headline."
+        + (
+            "\n- Write the headline and the body in Spanish (neutral "
+            "Latin American Spanish a driver would use at work). Keep "
+            "rule citations like 49 CFR 393.110 exactly as given."
+            if lang == "es"
+            else ""
+        )
     )
 
 
@@ -169,15 +239,25 @@ def write_report(
     _poster=None,
     timeout: float = 60.0,
     max_attempts: int = 2,
+    lang: str = "en",
 ) -> dict:
     """Spark-written report, template on any failure. Never raises."""
     if not verdicts:
+        if lang == "es":
+            return {
+                "headline": _ES["no_verdicts_headline"],
+                "body": _ES["no_verdicts_body"],
+                "source": "template",
+                "model": None,
+                "lang": "es",
+            }
         return {
             "headline": "No verdicts to summarize yet",
             "body": "Run an analysis with a load length to get rule "
             "verdicts for this load.",
             "source": "template",
             "model": None,
+            "lang": "en",
         }
     poster = _poster or _post
     payload = {
@@ -187,7 +267,7 @@ def write_report(
                 "type": "message",
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": build_prompt(verdicts, inputs)}
+                    {"type": "input_text", "text": build_prompt(verdicts, inputs, lang=lang)}
                 ],
             }
         ],
@@ -209,6 +289,7 @@ def write_report(
                 "body": body[:2400],
                 "source": "spark",
                 "model": MODEL,
+                "lang": lang,
             }
         except urllib.error.HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504):
@@ -218,4 +299,6 @@ def write_report(
         except Exception:
             if attempt < max_attempts:
                 time.sleep(2.0 * attempt)
-    return fallback_report(verdicts, inputs)
+    fb = fallback_report(verdicts, inputs, lang=lang)
+    fb["lang"] = lang
+    return fb

@@ -508,3 +508,25 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   no fake passes across the set.
 - docs/ARCHITECTURE.md added: pipeline diagram, the counting-basis
   and demote-only cross-check decisions, refusal-as-a-feature.
+
+## Quick wins: Spanish report, voice readout, rubric README (Oct 26, 2026, evening)
+
+- From the judges-value research (see repo docs and the research
+  notes): Spanish report option (Report language select in the
+  app; Muse Spark writes the summary in Spanish, and the template
+  fallback is a real Spanish template, not a relabel; check names
+  and rule citations stay verbatim) and a Listen button that reads
+  the report aloud in the browser in the report's language.
+  Evidence: Hispanic drivers are 25.7 percent of US truck drivers
+  (EPI/CPS 2025) and 28 percent of Hispanic adults are
+  smartphone-dependent for internet (Pew 2025).
+- README reorganized as a rubric map: a "Why it matters, in
+  numbers" section (CVSA Roadcheck 2026 focus area, #4 vehicle
+  out-of-service, 1,724 violations; FMCSA 2025 counts; AAA
+  Foundation debris crash totals), a "For the judges" section
+  mapping each criterion to its evidence, and a "How it compares"
+  section naming CargoPro head-on (checklist that asks the driver
+  to count vs a system that sees and measures).
+- Submission draft updated with the same numbers, the competitor
+  line, and a re-cut demo structure (magic moment in the first
+  45 seconds, technology named at 2:20, live link close).

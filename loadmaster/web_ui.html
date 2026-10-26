@@ -167,6 +167,11 @@
         </select>
       </div>
     </div>
+    <label class="flabel" for="reportLang">Report language</label>
+    <select id="reportLang">
+      <option value="en" selected>English</option>
+      <option value="es">Espanol</option>
+    </select>
     <label class="flabel" for="loadType">What is the load?</label>
     <select id="loadType">
       <option value="firewood" selected>Firewood</option>
@@ -231,6 +236,7 @@
     <div id="reportBody"></div>
     <p class="noteline" id="reportSource"></p>
     <div class="actions">
+      <button class="btn" id="listenBtn" type="button">Listen to the report</button>
       <button class="btn" id="printBtn" type="button">Print / save report card</button>
     </div>
   </section>
@@ -278,7 +284,7 @@ var els = {};
 ["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
- "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody"
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody","reportLang","listenBtn"
 ].forEach(function(id){ els[id] = document.getElementById(id); });
 
 var state = {
@@ -430,6 +436,7 @@ els.analyzeBtn.addEventListener("click", function(){
   fd.append("trailer_type", els.trailerType.value);
   fd.append("load_type", els.loadType.value);
   fd.append("photo_role", els.photoRole.value);
+  fd.append("report_lang", els.reportLang.value);
   var bed = numOrNull(els.bedLength.value), loadLen = numOrNull(els.loadLength.value), wt = numOrNull(els.weight.value);
   if (bed !== null) fd.append("bed_length_ft", bed);
   if (loadLen !== null) fd.append("load_length_ft", loadLen);
@@ -896,6 +903,23 @@ function fillPrintCard(){
     + "A photo cannot verify strap tension, tie-down working load limit ratings, or load weight; "
     + "checks needing those numbers are marked COULD NOT TELL rather than guessed.</div>";
 }
+els.listenBtn.addEventListener("click", function(){
+  if (!("speechSynthesis" in window)){ setStatus("This browser cannot read aloud."); return; }
+  if (window.speechSynthesis.speaking){
+    window.speechSynthesis.cancel();
+    els.listenBtn.textContent = "Listen to the report";
+    return;
+  }
+  var rep = state._report;
+  if (!rep || !rep.headline){ setStatus("Run an analysis first."); return; }
+  var u = new SpeechSynthesisUtterance(rep.headline + ". " + (rep.body || ""));
+  u.lang = rep.lang === "es" ? "es-US" : "en-US";
+  u.onend = function(){ els.listenBtn.textContent = "Listen to the report"; };
+  u.onerror = u.onend;
+  els.listenBtn.textContent = "Stop reading";
+  window.speechSynthesis.speak(u);
+});
+
 els.printBtn.addEventListener("click", function(){
   fillPrintCard();
   window.print();

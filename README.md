@@ -27,6 +27,61 @@ and see exactly which verdicts changed.
   Three real pipeline runs (firewood side view, excavator lowboy rear
   view, ratchet-strap anchor close-up), captured from the app itself.
 
+## Why it matters, in numbers
+
+- Cargo securement was the official vehicle focus area of CVSA
+  Roadcheck 2026, and it still ranked #4 among vehicle
+  out-of-service violations: 1,724 violations, 12.4 percent of the
+  vehicle total, in three days of inspections (CVSA, 2026 results).
+- FMCSA's 2025 full-year numbers (via CVSA) count 18,108 violations
+  for cargo not secured to prevent leaking, spilling, blowing, or
+  falling, plus 16,054 for unsecured vehicle components and dunnage.
+- The AAA Foundation's 2026 update counts road debris, most
+  commonly unsecured cargo and fallen vehicle parts, in more than
+  319,000 crashes with more than 32,000 injuries and 433 deaths
+  across 2018 to 2023.
+
+The rules exist and are enforced. What is missing is a way for the
+person tying the load down to check it before an inspector, or the
+road, does it for them.
+
+## For the judges (where the evidence lives)
+
+- **Impact (30%):** the numbers above; a tool aimed at the
+  independents who have no safety department (91.1 percent of US
+  carriers run 10 trucks or fewer, ATA Trends 2026); a Spanish
+  report option and a listen-aloud report for the workforce that
+  actually hauls (Hispanic drivers are 25.7 percent of US truck
+  drivers, EPI/CPS 2025; 28 percent of Hispanic adults are
+  smartphone-dependent for internet, Pew 2025).
+- **Use of Meta AI Tooling (25%):** SAM 3.1 does the geometry
+  (segmentation, calibrated measurement), Muse Spark does two
+  distinct jobs: an independent second read of the photo that can
+  demote verdicts, and the plain-words report written strictly
+  from the engine's verdicts. Both models, two roles each, one
+  deterministic referee between them.
+- **Demo (25%):** the live app link above works right now; the
+  gallery shows real runs with no upload; the 3-minute video shows
+  a failing load, the fix, and the recheck flipping it to PASS.
+- **Technical Depth and Execution (20%):**
+  docs/ARCHITECTURE.md (design decisions, including the measured
+  reason straps are counted from close-ups plus tap marks, never
+  from full-frame guesses), 109 automated tests, examples/output/
+  (real pipeline artifacts), BUILD_LOG.md (the whole build, in
+  the open).
+
+## How it compares
+
+The closest product, CargoPro, is a per-driver checklist app: it
+asks the driver to count the tie-downs, does working load limit
+math on the numbers typed in, and attaches photos as unanalyzed
+evidence. Telematics platforms (Samsara, Motive) digitize
+inspection forms at fleet prices with hardware. The incumbent for
+most independents is a plastic sliding calculator. LoadMaster is
+the one that looks at the photo: it sees the load, measures it,
+applies the actual rules, cites them, and has a second model check
+the first one's work.
+
 ## What is built
 
 - SAM 3.1 pipeline: prompt packs keyed to trailer type, load type,
@@ -44,11 +99,12 @@ and see exactly which verdicts changed.
   disagreement demotes a verdict to CHECK THIS, never upgrades one.
 - Muse Spark report: a short, plain-words, fix-first summary written
   strictly from the verdicts (a template fallback covers any model
-  failure).
+  failure). Available in English or Spanish, with a listen-aloud
+  readout in the app.
 - Tap-to-correct + instant recheck with a visible before/after delta;
   guided capture with photo quality gates; a printable one-page
   report card; a judges' sample gallery of real runs.
-- 104 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
+- 109 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 
