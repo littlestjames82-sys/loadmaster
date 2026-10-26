@@ -15,9 +15,10 @@ Deploy (one-time setup, run by a human with the Modal account):
     modal secret create meta-model-api META_API_KEY=<the key>
     modal deploy modal_app.py
 
-NOT deployed yet: this VM has no Modal CLI auth. The file is
-deploy-ready; the remaining steps are the CLI login above and Ryan
-creating the "meta-model-api" secret with his key.
+Deployed Oct 26, 2026 via GitHub Actions (this file, using the
+repo secrets MODAL_TOKEN_ID / MODAL_TOKEN_SECRET) to
+https://littlestjames82-sys--loadmaster-fastapi-app.us-east.modal.run
+with the "meta-model-api" secret in place; verified live end to end.
 """
 
 from __future__ import annotations

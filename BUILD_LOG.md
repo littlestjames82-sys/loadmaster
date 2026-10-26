@@ -462,3 +462,18 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   and minimum fixes, measurements, and the not-a-DOT-inspection
   honesty footer) and opens the print sheet; on the phone that is
   also Save-as-PDF / share.
+
+## Judges' sample gallery (Oct 26, 2026, evening)
+
+- `/gallery` on the live app: three REAL pipeline runs captured
+  from this service's own `/analyze` (firewood side view, excavator
+  lowboy rear view, ratchet-strap anchor close-up), each with its
+  overlay image, detection chips, Spark headline + summary, and
+  the full verdict table. Nothing hand-written; the runs are
+  pinned by tests (tests/test_gallery.py) so the page can never
+  silently go empty. Linked from the app header ("See sample
+  runs") as the no-upload path for judges and the backup if a
+  live run is slow.
+- Gallery photos are the openly licensed development set, labeled
+  as such on the page; the scored test set remains Ryan's own
+  staged loads.

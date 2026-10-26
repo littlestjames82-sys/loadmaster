@@ -31,6 +31,7 @@ Model API key arrives as the META_API_KEY env var (see sam_client).
 from __future__ import annotations
 
 import base64
+import html as html_lib
 import inspect
 import io
 import json
@@ -276,6 +277,109 @@ def index() -> str:
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------
+# Judges' sample gallery: precomputed REAL pipeline runs (captured
+# from this service's /analyze on openly licensed development
+# photos), so the results can be read without running a live
+# analysis. Nothing here is hand-written: verdicts, measurements,
+# overlays, and reports all come from actual runs.
+# ---------------------------------------------------------------------
+
+_GALLERY_DIR = Path(__file__).with_name("gallery")
+_GALLERY_ORDER = ("firewood", "lowboy", "closeup")
+
+
+def load_gallery_entries() -> list[dict]:
+    entries: list[dict] = []
+    for slug in _GALLERY_ORDER:
+        path = _GALLERY_DIR / f"{slug}.json"
+        try:
+            entries.append(json.loads(path.read_text(encoding="utf-8")))
+        except Exception:
+            continue
+    return entries
+
+
+def _gallery_html(entries: list[dict]) -> str:
+    from .report import check_label
+
+    esc = html_lib.escape
+    parts = [
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>LoadMaster - Sample runs</title><style>"
+        "body{margin:0;background:#0b0f14;color:#e8eef4;font-family:system-ui,sans-serif;}"
+        "main{max-width:860px;margin:0 auto;padding:18px 14px 40px;}"
+        "h1{font-size:24px;margin:6px 0 2px;} h1 span{color:#f5b301;}"
+        ".sub{color:#8fa1b3;font-size:14px;line-height:1.5;}"
+        "a{color:#f5b301;font-weight:700;text-decoration:none;}"
+        ".run{background:#131a23;border:1px solid #26313f;border-radius:14px;padding:16px;margin:18px 0;}"
+        ".run h2{font-size:19px;margin:0 0 4px;}"
+        ".run img{width:100%;border-radius:10px;margin:10px 0;}"
+        ".headline{font-weight:800;font-size:16.5px;margin:8px 0 6px;}"
+        ".body{white-space:pre-wrap;line-height:1.55;font-size:14.5px;}"
+        "table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13.5px;}"
+        "th,td{border:1px solid #26313f;padding:6px 8px;text-align:left;vertical-align:top;}"
+        "th{background:#0b0f14;}"
+        ".st{font-weight:800;white-space:nowrap;}"
+        ".pass{color:#35d07f;} .check{color:#f5b301;} .tell{color:#8fa1b3;}"
+        ".chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}"
+        ".chip2{border:1px solid #26313f;border-radius:999px;padding:3px 10px;font-size:12.5px;color:#8fa1b3;}"
+        ".credit{color:#8fa1b3;font-size:12.5px;margin-top:10px;}"
+        "</style></head><body><main>"
+        "<h1>Load<span>Master</span> - sample runs</h1>"
+        "<p class=\"sub\">Real runs of the live pipeline (SAM 3.1 + "
+        "measurements + the deterministic 49 CFR 393 rules engine + a "
+        "Muse Spark summary), captured from this app on openly "
+        "licensed development photos. Prefer live? "
+        "<a href=\"/\">Analyze your own photo</a>.</p>",
+    ]
+    for e in entries:
+        rep = e.get("report") or {}
+        chips = "".join(
+            f"<span class=\"chip2\">{esc(str(d.get('label') or d.get('kind') or 'finding'))}"
+            + (f" {round(float(d['confidence']) * 100)}%" if d.get("confidence") is not None else "")
+            + "</span>"
+            for d in (e.get("detections") or [])
+        )
+        rows = ""
+        for v in e.get("verdicts") or []:
+            status = str(v.get("status") or "")
+            cls = "pass" if status == "PASS" else "check" if status == "CHECK THIS" else "tell"
+            rows += (
+                f"<tr><td>{esc(check_label(v))}</td>"
+                f"<td class=\"st {cls}\">{esc(status)}</td>"
+                f"<td>{esc(str(v.get('finding') or ''))}</td>"
+                f"<td>{esc(str(v.get('fix') or ''))}</td></tr>"
+            )
+        parts.append(
+            f"<section class=\"run\"><h2>{esc(str(e.get('title') or ''))}</h2>"
+            f"<div class=\"sub\">{esc(str(e.get('blurb') or ''))}</div>"
+            + (
+                f"<img alt=\"Analyzed photo with findings outlined\" src=\"data:{esc(str(e.get('overlay_mime') or 'image/jpeg'))};base64,{e.get('overlay_png_base64')}\">"
+                if e.get("overlay_png_base64")
+                else ""
+            )
+            + f"<div class=\"chips\">{chips}</div>"
+            + (f"<div class=\"headline\">{esc(str(rep.get('headline') or ''))}</div>" if rep.get("headline") else "")
+            + (f"<div class=\"body\">{esc(str(rep.get('body') or ''))}</div>" if rep.get("body") else "")
+            + (f"<table><tr><th>Check</th><th>Verdict</th><th>Finding</th><th>Minimum fix</th></tr>{rows}</table>" if rows else "")
+            + f"<div class=\"credit\">{esc(str(e.get('photo_credit') or ''))}</div></section>"
+        )
+    parts.append(
+        "<p class=\"sub\">A photo cannot verify strap tension, tie-down "
+        "ratings, or load weight; checks needing those are marked COULD "
+        "NOT TELL rather than guessed. LoadMaster by Ghost Developer "
+        "Studio.</p></main></body></html>"
+    )
+    return "".join(parts)
+
+
+@app.get("/gallery", response_class=HTMLResponse)
+def gallery() -> str:
+    return _gallery_html(load_gallery_entries())
 
 
 @app.post("/analyze")
