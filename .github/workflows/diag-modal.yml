@@ -1,0 +1,28 @@
+name: Diagnose Modal app
+
+# Manual-only diagnostics: dumps the Modal app list and recent app
+# logs into the job output so a wedged deployment can be inspected
+# without local Modal CLI auth. Never runs on push.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install modal
+      - name: App list
+        run: modal app list || true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      - name: App logs (recent)
+        run: timeout 120 modal app logs loadmaster 2>&1 | tail -400 || true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
