@@ -421,3 +421,24 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
 - This is the judges' live demo link; the same URL serves the mobile
   web UI (photo in, verdict cards out, tap-to-correct recheck through
   `/verdicts` without re-running SAM).
+
+## Spark report + recheck delta in the app (Oct 26, 2026, evening)
+
+- `loadmaster/report.py`: Muse Spark turns the deterministic
+  verdicts into a short plain-words, fix-first summary. Strict
+  grounding: the prompt carries only the verdict facts (findings,
+  minimum fixes, citations), forbids invented numbers, and keeps the
+  honesty line (a photo cannot verify tension, ratings, or weight).
+  A deterministic template report covers any Spark failure, so the
+  app never ships a blank summary. Verdicts themselves never come
+  from the model; the engine owns the facts, Spark owns the words.
+- `/analyze` now returns `report` alongside verdicts; the UI shows it
+  as a "What to fix first" card above the verdict cards. Verdict
+  card titles now use plain names (Tie-down count, not tiedown_count).
+- Recheck delta: after tap-to-correct rechecks, a "WHAT CHANGED"
+  box lists each verdict that flipped (old chip -> new chip) plus
+  how many checks stayed the same; if nothing flipped it says so.
+- Proof: 98 pytest tests pass (9 new for the report writer, Spark
+  stubbed). Local live run on the hay-bale photo returned a Spark
+  report (source "spark") whose every number traces to a verdict:
+  10.9 in front gap, 0.6 in rear overhang, 6 tie-downs required.

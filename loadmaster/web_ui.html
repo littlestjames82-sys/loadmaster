@@ -67,6 +67,13 @@
   .chip.pass{background:#123324; color:var(--green); border:1px solid rgba(53,208,127,.5);}
   .chip.check{background:#2b2103; color:var(--amber); border:1px solid rgba(245,179,1,.55);}
   .chip.tell{background:#1c2634; color:var(--dim); border:1px solid var(--line);}
+  #reportHeadline{font-weight:800; font-size:17.5px; line-height:1.35; margin:2px 0 8px;}
+  #reportBody{white-space:pre-wrap; line-height:1.55; font-size:15px;}
+  #deltaBox{display:none; border:1px solid rgba(53,208,127,.45); background:#0f2417; border-radius:12px; padding:10px 12px; margin:0 0 12px;}
+  #deltaBox .dhead{font-weight:800; font-size:13px; letter-spacing:.4px; color:var(--green); margin-bottom:6px;}
+  #deltaBox .dline{display:flex; align-items:center; gap:7px; flex-wrap:wrap; padding:3px 0; font-size:14.5px;}
+  #deltaBox .darrow{color:var(--dim); font-weight:800;}
+  #deltaBox .dnote{color:var(--dim); font-size:13px; margin-top:5px;}
   .verdict .vcite{color:var(--dim); font-size:12.5px; margin-top:2px;}
   .verdict .vfind{font-size:14.5px; margin-top:7px;}
   .verdict .vfix{font-size:14.5px; margin-top:7px; background:#0b0f14; border:1px solid var(--line); border-radius:9px; padding:8px 10px;}
@@ -194,9 +201,17 @@
     <div id="warnings" style="margin-top:10px;"></div>
   </section>
 
+  <section class="card" id="reportCard" style="display:none;">
+    <h2>What to fix first</h2>
+    <p id="reportHeadline"></p>
+    <div id="reportBody"></div>
+    <p class="noteline" id="reportSource"></p>
+  </section>
+
   <section class="card" id="verdictCard" style="display:none;">
     <h2>Rule verdicts</h2>
     <p class="sub">Deterministic checks against 49 CFR 393, from the findings and measurements. Correct a finding above and the verdicts recheck instantly, without re-reading the photo.</p>
+    <div id="deltaBox"></div>
     <div id="verdicts"></div>
     <p class="noteline" id="recheckNote"></p>
   </section>
@@ -229,7 +244,7 @@ var els = {};
 ["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
- "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes"
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox"
 ].forEach(function(id){ els[id] = document.getElementById(id); });
 
 var state = {
@@ -450,11 +465,75 @@ function renderFindings(){
   });
 }
 
+var CHECK_LABELS = {
+  forward_blocking: "Forward blocking",
+  tiedown_count: "Tie-down count",
+  heavy_equipment: "Heavy equipment securement",
+  overhang_lights_plate: "Overhang, lights and plate",
+  weight_placement: "Weight placement",
+  tarp_coverage: "Tarp coverage",
+  edge_protection: "Edge protection",
+  aggregate_wll: "Tie-down strength"
+};
+function labelFor(check){
+  if (!check) return "Check";
+  return CHECK_LABELS[check] || String(check).replace(/_/g, " ");
+}
+
 function chipClass(status){
   var s = String(status || "").toUpperCase();
   if (s.indexOf("PASS") === 0) return "pass";
   if (s.indexOf("CHECK") === 0) return "check";
   return "tell";
+}
+
+function renderReport(report){
+  var card = els.reportCard;
+  if (!report || !report.headline){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  els.reportHeadline.textContent = report.headline;
+  els.reportBody.textContent = report.body || "";
+  els.reportSource.textContent = report.source === "spark"
+    ? "Written by Muse Spark from the verdicts below. The verdicts themselves come from the deterministic 49 CFR 393 rules engine, not from the model."
+    : "Summary built from the verdicts below, which come from the deterministic 49 CFR 393 rules engine.";
+}
+
+function renderDelta(before, after){
+  var box = els.deltaBox;
+  box.innerHTML = "";
+  if (!before || !after){ box.style.display = "none"; return; }
+  var prev = {};
+  before.forEach(function(v){ prev[v.check] = v.status; });
+  var changes = [], unchanged = 0;
+  after.forEach(function(v){
+    if (!(v.check in prev)) return;
+    if (prev[v.check] === v.status) unchanged++;
+    else changes.push({ check: v.check, from: prev[v.check], to: v.status });
+  });
+  box.style.display = "block";
+  var head = document.createElement("div"); head.className = "dhead";
+  head.textContent = changes.length ? "WHAT CHANGED" : "RECHECKED";
+  box.appendChild(head);
+  if (!changes.length){
+    var n = document.createElement("div"); n.className = "dnote";
+    n.textContent = "No verdict changed with those corrections.";
+    box.appendChild(n);
+    return;
+  }
+  changes.forEach(function(c){
+    var line = document.createElement("div"); line.className = "dline";
+    var nm = document.createElement("b"); nm.textContent = labelFor(c.check);
+    var f = document.createElement("span"); f.className = "chip " + chipClass(c.from); f.textContent = c.from;
+    var ar = document.createElement("span"); ar.className = "darrow"; ar.textContent = "\u2192";
+    var t = document.createElement("span"); t.className = "chip " + chipClass(c.to); t.textContent = c.to;
+    line.appendChild(nm); line.appendChild(f); line.appendChild(ar); line.appendChild(t);
+    box.appendChild(line);
+  });
+  if (unchanged){
+    var note = document.createElement("div"); note.className = "dnote";
+    note.textContent = unchanged + " other check" + (unchanged === 1 ? "" : "s") + " unchanged.";
+    box.appendChild(note);
+  }
 }
 
 function renderVerdicts(verdicts){
@@ -474,7 +553,7 @@ function renderVerdicts(verdicts){
     var div = document.createElement("div");
     div.className = "verdict";
     var head = document.createElement("div"); head.className = "vhead";
-    var nm = document.createElement("div"); nm.className = "vname"; nm.textContent = v.check || "Check";
+    var nm = document.createElement("div"); nm.className = "vname"; nm.textContent = labelFor(v.check);
     var chip = document.createElement("span"); chip.className = "chip " + chipClass(v.status); chip.textContent = v.status || "";
     head.appendChild(nm); head.appendChild(chip);
     div.appendChild(head);
@@ -589,6 +668,7 @@ function removeDet(id){
 
 function recheck(){
   if (!state.ds || state.rechecking) return;
+  var beforeVerdicts = state._verdicts;
   if (!state.inputs || state.inputs.load_length_ft == null){
     els.modeNote.textContent = "Saved. Add a load length and re-analyze to get rule verdicts for the corrected findings.";
     return;
@@ -606,6 +686,7 @@ function recheck(){
       state._verdicts = j.verdicts || null;
       if (j.measurements) state.measurements = j.measurements;
       renderVerdicts(state._verdicts);
+      renderDelta(beforeVerdicts, state._verdicts);
       renderMeasurements();
       var extra = (j.warnings && j.warnings.length) ? " " + j.warnings[0] : "";
       els.recheckNote.textContent = "Rechecked from your corrections in " + (j.latency_s != null ? j.latency_s + "s" : "an instant") + ", no new photo read." + extra;
@@ -621,7 +702,10 @@ function recheck(){
 var _apply = applyAnalysis;
 applyAnalysis = function(j){
   state._verdicts = j.verdicts || null;
+  state._report = j.report || null;
   _apply(j);
+  renderReport(state._report);
+  els.deltaBox.style.display = "none";
 };
 </script>
 </body>

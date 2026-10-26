@@ -44,6 +44,7 @@ from PIL import Image
 
 from .detections import DetectionSet
 from .pipeline import run_pipeline
+from .report import write_report
 
 app = FastAPI(title="LoadMaster", version="0.1.0")
 
@@ -338,16 +339,25 @@ def analyze(
 
         verdicts = None
         rules_report = None
+        report = None
         if load_length_ft is not None:
             verdicts, v_warnings, rules_report = compute_verdicts(
                 detections, measurements, inputs
             )
             warnings.extend(v_warnings)
+            if verdicts:
+                try:
+                    report = write_report(verdicts, inputs)
+                except Exception as exc:  # write_report never raises; belt and braces
+                    warnings.append(
+                        f"written summary unavailable ({type(exc).__name__}: {exc})"
+                    )
 
         return {
             "detections": detections,
             "measurements": measurements,
             "verdicts": verdicts,
+            "report": report,
             "rules": rules_report,
             "overlay_png_base64": overlay_b64,
             "overlay_mime": "image/jpeg",
