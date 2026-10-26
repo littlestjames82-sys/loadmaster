@@ -1,0 +1,23 @@
+{
+ "photo": "/home/hatch/workspace/goals/meta-global-ai-developer-hackathon-loadmaster-entry/files/dev-images/ratchet-strap-container-closeup.jpg",
+ "trailer_type": "unknown",
+ "load_type": "generic",
+ "photo_role": "closeup",
+ "prompts": [
+  {
+   "prompt": "ratchet strap",
+   "kind": "tiedown_closeup",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 4.68,
+   "objects": 1,
+   "error": null
+  }
+ ],
+ "wheel_filter": {
+  "raw": 0,
+  "kept": 0,
+  "clusters": 0
+ }
+}

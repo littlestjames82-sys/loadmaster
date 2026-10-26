@@ -1,0 +1,53 @@
+{
+ "photo": "/home/hatch/workspace/goals/meta-global-ai-developer-hackathon-loadmaster-entry/files/dev-images/utility-trailer-firewood-logs.jpg",
+ "trailer_type": "utility",
+ "load_type": "firewood",
+ "photo_role": "side",
+ "prompts": [
+  {
+   "prompt": "trailer",
+   "kind": "trailer_bed",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 5.76,
+   "objects": 1,
+   "error": null
+  },
+  {
+   "prompt": "wheel",
+   "kind": "wheel",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 2.3,
+   "objects": 1,
+   "error": null
+  },
+  {
+   "prompt": "logs",
+   "kind": "cargo",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 4.04,
+   "objects": 7,
+   "error": null
+  },
+  {
+   "prompt": "ratchet strap",
+   "kind": "tiedown_closeup",
+   "bonus_only": true,
+   "status": "empty",
+   "attempts": 1,
+   "latency_s": 2.38,
+   "objects": 0,
+   "error": null
+  }
+ ],
+ "wheel_filter": {
+  "raw": 1,
+  "kept": 1,
+  "clusters": 1
+ }
+}

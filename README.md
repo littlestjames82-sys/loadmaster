@@ -50,6 +50,13 @@ Pre-window work was research only: a written spec grounded in 49 CFR
 - Oct 26: repository created; SAM 3.1 and Muse Spark access proven on
   the Meta Model API (first SAM call: one trailer mask, 0.863
   confidence, on a development photo).
+- Oct 26 (Day 1): the SAM pipeline is built: prompt packs keyed to
+  trailer type, load type, and photo role; mask decoding; an editable
+  detection model built for tap-to-correct; and annotated overlay
+  renders. Proven on development photos, outputs in examples/output/.
+  Run it with `python -m loadmaster.pipeline --photo PHOTO
+  --trailer-type utility --load-type firewood --role side --out-dir
+  examples/output` (dependencies in requirements.txt).
 
 Build progress is logged in BUILD_LOG.md, newest at the top.
 
@@ -58,8 +65,9 @@ Build progress is logged in BUILD_LOG.md, newest at the top.
 - Meta Model API: SAM 3.1 (segmentation) and Muse Spark 1.3 (report
   reasoning), accessed with an API key that is never stored in this
   repository.
-- meta-sam-parser (Meta's SAM output parser) for mask decoding, if used
-  in the final pipeline; the build log will say.
+- meta-sam-parser (Meta's SAM output parser) for mask decoding; the
+  build log records the Day 1 route decision.
+- Pillow for image handling and overlay rendering.
 
 ## License
 

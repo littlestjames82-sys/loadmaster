@@ -1,0 +1,63 @@
+{
+ "photo": "/home/hatch/workspace/goals/meta-global-ai-developer-hackathon-loadmaster-entry/files/dev-images/lowboy-excavator-chained-rear.jpg",
+ "trailer_type": "lowboy",
+ "load_type": "excavator",
+ "photo_role": "rear",
+ "prompts": [
+  {
+   "prompt": "flatbed trailer",
+   "kind": "trailer_bed",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 5.97,
+   "objects": 1,
+   "error": null
+  },
+  {
+   "prompt": "wheel",
+   "kind": "wheel",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 3.44,
+   "objects": 7,
+   "error": null
+  },
+  {
+   "prompt": "excavator",
+   "kind": "cargo",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 6.21,
+   "objects": 1,
+   "error": null
+  },
+  {
+   "prompt": "chain",
+   "kind": "chain_hint",
+   "bonus_only": false,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 1.89,
+   "objects": 1,
+   "error": null
+  },
+  {
+   "prompt": "ratchet strap",
+   "kind": "tiedown_closeup",
+   "bonus_only": true,
+   "status": "ok",
+   "attempts": 1,
+   "latency_s": 2.37,
+   "objects": 2,
+   "error": null
+  }
+ ],
+ "wheel_filter": {
+  "raw": 7,
+  "kept": 7,
+  "clusters": 2
+ }
+}
