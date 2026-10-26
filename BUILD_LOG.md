@@ -442,3 +442,23 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   stubbed). Local live run on the hay-bale photo returned a Spark
   report (source "spark") whose every number traces to a verdict:
   10.9 in front gap, 0.6 in rear overhang, 6 tie-downs required.
+
+## Guided capture, quality gates, printable report card (Oct 26, 2026, evening)
+
+- Guided capture: the setup card now shows a framing guide that
+  follows the selected photo view (side: whole bed + wheels + front
+  edge; rear: lights + plate + overhang; close-up: one anchor fills
+  the frame, with the counting basis explained).
+- Instant quality gates: the moment a photo is picked, the phone
+  itself checks size, light, and sharpness on a small canvas copy
+  and shows plain chips (Photo size OK / Looks very dark / Looks
+  very soft...). Advisory only; Analyze is never blocked.
+- After analysis, a second set of gates reports what the camera
+  actually found (Trailer found / No axle found - weight placement
+  cannot be measured / Load found (19 pieces) / no countable
+  tie-downs yet) so a bad photo gets a retake hint, not silence.
+- Printable report card: one tap builds a clean one-page card
+  (inputs, Spark headline + summary, verdict table with findings
+  and minimum fixes, measurements, and the not-a-DOT-inspection
+  honesty footer) and opens the print sheet; on the phone that is
+  also Save-as-PDF / share.

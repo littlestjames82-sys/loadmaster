@@ -29,6 +29,26 @@
   .pickBtn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; border-radius:12px; border:1.5px dashed rgba(245,179,1,.55); background:#232017; color:var(--amber); font-weight:700; font-size:16px; cursor:pointer; padding:12px; text-align:center;}
   .pickBtn.done{border-style:solid; border-color:var(--green); color:#d9ffd9; background:#123324;}
   .hiddenFile{position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;}
+  #captureGuide{margin-top:12px; border:1px solid var(--line); border-left:4px solid var(--amber); background:var(--card2); border-radius:10px; padding:10px 12px; font-size:14px; line-height:1.5; color:var(--text);}
+  #captureGuide b{color:var(--amber);}
+  .qchips{display:flex; flex-wrap:wrap; gap:7px; margin-top:10px;}
+  .qchip{border-radius:999px; padding:4px 11px; font-size:12.5px; font-weight:700; border:1px solid var(--line); color:var(--dim); background:var(--card2);}
+  .qchip.ok{color:var(--green); border-color:rgba(53,208,127,.5); background:#123324;}
+  .qchip.warn{color:var(--amber); border-color:rgba(245,179,1,.55); background:#2b2103;}
+  #printCard{display:none;}
+  @media print{
+    body{background:#fff !important;}
+    header, footer, main > section:not(#printCard){display:none !important;}
+    #printCard{display:block !important; color:#111; font-size:13px; line-height:1.5;}
+    #printCard h1{font-size:21px; margin:0 0 2px;}
+    #printCard h2{font-size:15px; margin:16px 0 6px; border-bottom:2px solid #111; padding-bottom:3px;}
+    #printCard .pcMeta{color:#444; font-size:12px;}
+    #printCard table{width:100%; border-collapse:collapse; margin-top:6px;}
+    #printCard th, #printCard td{border:1px solid #999; padding:5px 7px; text-align:left; vertical-align:top; font-size:12px;}
+    #printCard th{background:#eee;}
+    #printCard .pcStatus{font-weight:800; white-space:nowrap;}
+    #printCard .pcFoot{margin-top:16px; border-top:1px solid #999; padding-top:8px; color:#333; font-size:12px;}
+  }
   .bigBtn{display:block; width:100%; min-height:56px; margin-top:16px; border-radius:12px; border:none; background:var(--amber); color:#191200; font:inherit; font-weight:800; font-size:17px; cursor:pointer; padding:12px;}
   .bigBtn:disabled{background:#3a4350; color:#8fa1b3; cursor:default;}
   .spinner{width:22px; height:22px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--amber); animation:spin 1s linear infinite; display:inline-block; vertical-align:-5px; margin-right:9px;}
@@ -122,6 +142,8 @@
     </div>
     <input id="cameraInput" class="hiddenFile" type="file" accept="image/*" capture="environment">
     <input id="photoInput" class="hiddenFile" type="file" accept="image/*">
+    <div id="captureGuide"></div>
+    <div class="qchips" id="qualityChips"></div>
     <div class="grid2">
       <div>
         <label class="flabel" for="trailerType">Trailer type</label>
@@ -194,6 +216,7 @@
       <div id="addHint">Tap the photo where the tie-down is</div>
     </div>
     <div id="summaryBar"></div>
+    <div class="qchips" id="photoGates"></div>
     <div class="actions">
       <button class="btn" id="addBtn" type="button">+ Add a missed tie-down</button>
     </div>
@@ -206,6 +229,9 @@
     <p id="reportHeadline"></p>
     <div id="reportBody"></div>
     <p class="noteline" id="reportSource"></p>
+    <div class="actions">
+      <button class="btn" id="printBtn" type="button">Print / save report card</button>
+    </div>
   </section>
 
   <section class="card" id="verdictCard" style="display:none;">
@@ -232,6 +258,7 @@
   <section class="card honesty">
     <p><b>The honesty line:</b> a photo can count visible tie-downs and flag placement. It cannot verify strap tension, tie-down ratings, or load weight.</p>
   </section>
+  <section id="printCard"></section>
 </main>
 <footer>LoadMaster by Ghost Developer Studio &middot; Checks a loaded trailer against federal cargo securement rules and tells you what to fix before you roll.</footer>
 
@@ -244,7 +271,7 @@ var els = {};
 ["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
- "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox"
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard"
 ].forEach(function(id){ els[id] = document.getElementById(id); });
 
 var state = {
@@ -277,9 +304,98 @@ function onPhotoChosen(input){
   els.resultsCard.style.display = "block";
   els.photo.src = state.localUrl;
   els.resultSub.textContent = "Ready when you are. Tap Analyze photo.";
+  checkPhotoQuality(state.localUrl);
 }
 els.photoInput.addEventListener("change", function(){ onPhotoChosen(els.photoInput); });
 els.cameraInput.addEventListener("change", function(){ onPhotoChosen(els.cameraInput); });
+
+/* ---------- guided capture + instant quality gates ---------- */
+var GUIDE_TEXT = {
+  side: "<b>Side view:</b> stand square to the trailer, far enough back to fit the whole bed, the wheels, and the front of the load in one frame. The front edge of the load is what the forward-blocking check reads.",
+  rear: "<b>Rear view:</b> stand behind the trailer so the tail lights, the license plate, and anything sticking out past the rear are all in frame.",
+  closeup: "<b>Tie-down close-up:</b> fill the frame with ONE tie-down anchor and its strap. One close-up per anchor is how tie-downs get counted; full-frame straps are only a hint."
+};
+function updateGuide(){
+  els.captureGuide.innerHTML = GUIDE_TEXT[els.photoRole.value] || GUIDE_TEXT.side;
+}
+els.photoRole.addEventListener("change", updateGuide);
+updateGuide();
+
+function qchip(text, cls){
+  var s = document.createElement("span");
+  s.className = "qchip" + (cls ? " " + cls : "");
+  s.textContent = text;
+  return s;
+}
+
+function checkPhotoQuality(url){
+  var box = els.qualityChips;
+  box.innerHTML = "";
+  var img = new Image();
+  img.onload = function(){
+    try {
+      var W = img.naturalWidth, H = img.naturalHeight;
+      var longEdge = Math.max(W, H);
+      box.appendChild(longEdge >= 1200
+        ? qchip("Photo size OK (" + W + " x " + H + ")", "ok")
+        : qchip("Small photo (" + W + " x " + H + ") - fine details may be missed", "warn"));
+      var cw = 160, ch = Math.max(1, Math.round(160 * H / W));
+      var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      var ctx = cv.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(img, 0, 0, cw, ch);
+      var px = ctx.getImageData(0, 0, cw, ch).data;
+      var luma = new Float32Array(cw * ch), sum = 0;
+      for (var i = 0; i < cw * ch; i++){
+        var v = 0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2];
+        luma[i] = v; sum += v;
+      }
+      var mean = sum / (cw * ch);
+      box.appendChild(mean < 30
+        ? qchip("Looks very dark - more light will read better", "warn")
+        : mean > 232
+          ? qchip("Looks blown out - shade the glare if you can", "warn")
+          : qchip("Light OK", "ok"));
+      var grad = 0, n = 0;
+      for (var y = 0; y < ch; y++){
+        for (var x = 1; x < cw; x++){ grad += Math.abs(luma[y * cw + x] - luma[y * cw + x - 1]); n++; }
+      }
+      var sharp = n ? grad / n : 0;
+      box.appendChild(sharp < 1.1
+        ? qchip("Looks very soft - hold steady and tap to focus", "warn")
+        : qchip("Sharpness OK", "ok"));
+    } catch (e) {
+      box.innerHTML = "";
+      box.appendChild(qchip("Instant photo checks unavailable for this photo", ""));
+    }
+  };
+  img.src = url;
+}
+
+/* ---------- post-analysis photo gates ---------- */
+function renderPhotoGates(){
+  var box = els.photoGates;
+  box.innerHTML = "";
+  if (!state.ds) return;
+  var dets = state.ds.detections || [];
+  function has(re){ return dets.some(function(d){ return re.test((d.label || "") + " " + (d.kind || "")); }); }
+  function count(re){ return dets.filter(function(d){ return re.test((d.label || "") + " " + (d.kind || "")); }).length; }
+  box.appendChild(has(/trailer/)
+    ? qchip("Trailer found", "ok")
+    : qchip("No trailer found - retake with the whole bed in frame", "warn"));
+  if (els.photoRole.value !== "closeup"){
+    box.appendChild(has(/axle/)
+      ? qchip("Axle found", "ok")
+      : qchip("No axle found - weight placement cannot be measured; get the wheels fully in frame", "warn"));
+  }
+  var cargo = count(/cargo/);
+  box.appendChild(cargo
+    ? qchip("Load found (" + cargo + " piece" + (cargo === 1 ? "" : "s") + ")", "ok")
+    : qchip("No load found in this photo", "warn"));
+  var td = dets.some(function(d){ return /tie|strap/i.test((d.label || "") + " " + (d.kind || "")) && !d.bonus_only; });
+  if (!td){
+    box.appendChild(qchip("No countable tie-downs yet - add anchor close-ups or tap to mark them", ""));
+  }
+}
 
 var timer = null;
 function showProgress(on, label){
@@ -370,7 +486,7 @@ function renderWarnings(list){
 
 /* ---------- rendering ---------- */
 function renderAll(){
-  renderSummary(); renderPins(); renderHighlight(false);
+  renderSummary(); renderPhotoGates(); renderPins(); renderHighlight(false);
   renderFindings(); renderVerdicts(state._verdicts || null); renderMeasurements();
 }
 
@@ -697,6 +813,46 @@ function recheck(){
       els.modeNote.textContent = "Recheck could not reach the server (" + err.message + "). Your corrections are still on this page.";
     });
 }
+
+/* ---------- printable report card ---------- */
+function fillPrintCard(){
+  var inp = state.inputs || {};
+  var rows = (state._verdicts || []).map(function(v){
+    return "<tr><td>" + esc(labelFor(v.check)) + "</td>"
+      + '<td class="pcStatus">' + esc(v.status || "") + "</td>"
+      + "<td>" + esc(v.finding || "") + "</td>"
+      + "<td>" + esc(v.fix || "") + "</td></tr>";
+  }).join("");
+  var meas = "";
+  if (state.measurements && state.measurements.measurements){
+    meas = state.measurements.measurements.map(function(m){
+      return "<div>" + esc(String(m.name).replace(/_/g, " ")) + ": " + esc(fmtVal(m)) + "</div>";
+    }).join("");
+  }
+  var rep = state._report || {};
+  els.printCard.innerHTML =
+    "<h1>LoadMaster - Load Check Report Card</h1>"
+    + '<div class="pcMeta">Ghost Developer Studio &middot; Cargo securement checks against 49 CFR 393 &middot; '
+    + esc(new Date().toLocaleString()) + "</div>"
+    + '<div class="pcMeta">Trailer: ' + esc(inp.trailer_type || "not specified")
+    + " &middot; Load: " + esc(inp.load_type || "not specified")
+    + " &middot; Bed length: " + esc(inp.bed_length_ft != null ? inp.bed_length_ft + " ft" : "not supplied")
+    + " &middot; Load length: " + esc(inp.load_length_ft != null ? inp.load_length_ft + " ft" : "not supplied")
+    + " &middot; Weight: " + esc(inp.weight_lb != null ? inp.weight_lb + " lb" : "not supplied") + "</div>"
+    + (rep.headline ? "<h2>" + esc(rep.headline) + "</h2><div>" + esc(rep.body || "") + "</div>" : "")
+    + "<h2>Rule verdicts</h2>"
+    + (rows
+      ? "<table><tr><th>Check</th><th>Verdict</th><th>Finding</th><th>Minimum fix</th></tr>" + rows + "</table>"
+      : "<div>No verdicts for this run.</div>")
+    + (meas ? "<h2>Measurements (visual estimates, calibrated from the bed length given)</h2>" + meas : "")
+    + '<div class="pcFoot">This report card is a photo-based check, not a DOT inspection. '
+    + "A photo cannot verify strap tension, tie-down working load limit ratings, or load weight; "
+    + "checks needing those numbers are marked COULD NOT TELL rather than guessed.</div>";
+}
+els.printBtn.addEventListener("click", function(){
+  fillPrintCard();
+  window.print();
+});
 
 /* applyAnalysis stores verdicts separately so renderAll can reuse them */
 var _apply = applyAnalysis;
