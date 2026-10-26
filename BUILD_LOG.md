@@ -559,3 +559,11 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   corpse, while /health stayed green). Fix: max_containers=3 and
   @modal.concurrent(max_inputs=12), so one slow run can never
   block the next judge.
+- POST bisect (Oct 26, 2026, night): every POST to the deployed
+  app hangs (even a 270-byte /verdicts that is pure local
+  computation), while GETs answer in about a second and the same
+  code serves POSTs fine locally. modal_app.py is reverted to the
+  exact configuration of the last deployment era with proven
+  live POSTs (timeout 300 + scaledown 300; the later timeout bump
+  and the concurrency decorator are removed) to bisect whether
+  the hosting config is the culprit.
