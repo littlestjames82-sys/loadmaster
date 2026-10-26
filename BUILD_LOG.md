@@ -579,3 +579,23 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   HTTP 200 in 72.7 s with cross-check ok and a Spanish Spark
   report ("Falta evidencia para evaluar la lena") on the live
   app. The hosted secret key is healthy; no rotation needed.
+
+## Oct 26 (night) - Multi-photo runs, PWA, road-recheck guidance
+
+- Multi-photo /analyze: repeated `photos` + `photo_roles` fields (up
+  to 4) run concurrently; verdicts computed over ALL sets (the
+  engine's native shape). Primary (first side view) carries
+  measurements, overlay, and tap-to-correct; /verdicts now accepts
+  the full set list + the cross-check records, so a correction
+  recheck sees the same evidence as the first verdict and a
+  cross-check demotion cannot silently lift. UI: "Add another view"
+  rows with per-view roles, per-view findings summary, merged
+  cross-check card. Tests pin the decisive case: side-only leaves
+  tiedown_count COULD NOT TELL, adding a close-up with 4 strap marks
+  resolves it to PASS.
+- PWA: manifest + generated icons, add-to-home-screen, standalone
+  display; routes pinned by tests.
+- Report card now carries the 49 CFR 392.9 re-examination guidance
+  (first 50 miles, then every 3 hours / 150 miles, after stops).
+- README quantified from the captured runs: 11 runs, 68 verdicts,
+  second opinion cited in 19 verdict evidence records.

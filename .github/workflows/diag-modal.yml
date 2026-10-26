@@ -34,22 +34,23 @@ jobs:
       - name: Smoke test the live app from this runner
         run: |
           {
-            echo "=== live smoke: POST /analyze (firewood overlay photo, Spanish report) ==="
+            echo "=== live smoke: POST /analyze MULTI-PHOTO (firewood side + strap close-up, Spanish report) ==="
             python3 - <<'PYEOF'
           import base64, json, time, urllib.request, uuid
-          entry = json.load(open("loadmaster/gallery/firewood.json"))
-          img = base64.b64decode(entry["overlay_png_base64"])
-          open("/tmp/smoke.jpg", "wb").write(img)
+          side = base64.b64decode(json.load(open("loadmaster/gallery/firewood.json"))["overlay_png_base64"])
+          close = base64.b64decode(json.load(open("loadmaster/gallery/closeup.json"))["overlay_png_base64"])
           boundary = uuid.uuid4().hex
           fields = {
               "trailer_type": "utility", "load_type": "firewood",
-              "photo_role": "side", "bed_length_ft": "8",
-              "load_length_ft": "8", "report_lang": "es",
+              "bed_length_ft": "8", "load_length_ft": "8", "report_lang": "es",
           }
           parts = []
           for k, v in fields.items():
               parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
-          parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="smoke.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'.encode() + img + b"\r\n")
+          for role in ("side", "closeup"):
+              parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="photo_roles"\r\n\r\n{role}\r\n'.encode())
+          for name, img in (("side.jpg", side), ("close.jpg", close)):
+              parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="photos"; filename="{name}"\r\nContent-Type: image/jpeg\r\n\r\n'.encode() + img + b"\r\n")
           parts.append(f"--{boundary}--\r\n".encode())
           body = b"".join(parts)
           req = urllib.request.Request(
@@ -65,7 +66,9 @@ jobs:
               rep = data.get("report") or {}
               cc = (data.get("crosscheck") or [{}])
               print(f"HTTP 200 in {dt:.1f}s | detections: {len(dets)} | verdicts: {len(data.get('verdicts') or [])}")
-              print(f"crosscheck: {cc[0].get('status') if cc else None} | report: {rep.get('source')} lang={rep.get('lang')}")
+              sets = data.get("photo_sets") or []
+              print(f"photo_sets: {len(sets)} roles={[s.get('role') for s in sets]} counts={[len((s.get('detections') or {}).get('detections', [])) for s in sets]}")
+              print(f"crosscheck records: {len(cc)} statuses={[c.get('status') for c in cc]} | report: {rep.get('source')} lang={rep.get('lang')}")
               print(f"headline: {rep.get('headline')}")
               for w in (data.get("warnings") or [])[:3]:
                   print("warning:", w[:300])

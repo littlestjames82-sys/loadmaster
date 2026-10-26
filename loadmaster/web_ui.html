@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0e13">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <title>LoadMaster</title>
 <style>
   :root{
@@ -167,6 +171,9 @@
         </select>
       </div>
     </div>
+    <div id="extraPhotos"></div>
+    <button type="button" id="addViewBtn" class="ghost">+ Add another view of this load</button>
+    <p class="hint" id="multiHint" hidden>Verdicts use every view together: the side view carries the measurements, the rear view judges lights and plate, close-ups carry the tie-down count. Corrections work on the main view.</p>
     <label class="flabel" for="reportLang">Report language</label>
     <select id="reportLang">
       <option value="en" selected>English</option>
@@ -265,6 +272,7 @@
     <h2>What the camera found</h2>
     <p class="sub">Tap a finding to see it on the photo. Tap &#10005; if the camera got it wrong.</p>
     <div id="findings"></div>
+    <div id="otherViews"></div>
     <div class="noteline" id="runNotes"></div>
   </section>
 
@@ -284,12 +292,13 @@ var els = {};
 ["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
- "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody","reportLang","listenBtn"
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody","reportLang","listenBtn","addViewBtn","extraPhotos","multiHint","otherViews"
 ].forEach(function(id){ els[id] = document.getElementById(id); });
 
 var state = {
   file: null, localUrl: null,
   ds: null, measurements: null, inputs: null,
+  extras: [], extraSets: [], cross: null,
   activeId: null, addMode: false, userSeq: 0, rechecking: false
 };
 
@@ -426,16 +435,68 @@ function showError(msg){
 }
 function clearError(){ els.errorBox.style.display = "none"; els.errorBox.textContent = ""; }
 
+/* ---------- extra views (multi-photo) ---------- */
+var ROLE_NAMES = { side: "Side view", rear: "Rear three-quarter", closeup: "Tie-down close-up" };
+els.addViewBtn.addEventListener("click", function(){
+  if (state.extras.length >= 3){ return; }
+  var extra = { file: null, role: state.extras.length === 0 ? "rear" : "closeup" };
+  state.extras.push(extra);
+  var row = document.createElement("div");
+  row.className = "frow";
+  row.innerHTML =
+    '<div><label class="flabel">Extra view</label>' +
+    '<select class="xrole"><option value="rear">Rear three-quarter</option>' +
+    '<option value="closeup">Tie-down close-up</option>' +
+    '<option value="side">Side view</option></select></div>' +
+    '<div><label class="flabel">Photo</label>' +
+    '<label class="pickbtn xpick">Choose photo<input type="file" accept="image/*" hidden></label> ' +
+    '<button type="button" class="ghost xremove">Remove</button></div>';
+  var sel = row.querySelector(".xrole");
+  sel.value = extra.role;
+  sel.addEventListener("change", function(){ extra.role = sel.value; });
+  var input = row.querySelector("input[type=file]");
+  var pick = row.querySelector(".xpick");
+  input.addEventListener("change", function(){
+    var f = input.files && input.files[0];
+    if (!f) return;
+    extra.file = f;
+    pick.textContent = "Photo ready: " + f.name;
+    pick.classList.add("done");
+  });
+  row.querySelector(".xremove").addEventListener("click", function(){
+    state.extras = state.extras.filter(function(e){ return e !== extra; });
+    row.remove();
+    els.multiHint.hidden = state.extras.length === 0;
+    els.addViewBtn.disabled = false;
+  });
+  els.extraPhotos.appendChild(row);
+  els.multiHint.hidden = false;
+  if (state.extras.length >= 3){ els.addViewBtn.disabled = true; }
+});
+
 els.analyzeBtn.addEventListener("click", function(){
   if (!state.file) return;
   clearError();
   els.analyzeBtn.disabled = true;
-  showProgress(true, "Reading the photo: looking for the trailer, the load, the wheels and the straps\u2026");
+  var extraFiles = state.extras.filter(function(e){ return e.file; });
+  var multi = extraFiles.length > 0;
+  showProgress(true, multi
+    ? "Reading " + (extraFiles.length + 1) + " photos of the load: trailer, load, wheels, straps, lights\u2026"
+    : "Reading the photo: looking for the trailer, the load, the wheels and the straps\u2026");
   var fd = new FormData();
-  fd.append("photo", state.file);
+  if (multi){
+    fd.append("photos", state.file);
+    fd.append("photo_roles", els.photoRole.value);
+    extraFiles.forEach(function(e){
+      fd.append("photos", e.file);
+      fd.append("photo_roles", e.role);
+    });
+  } else {
+    fd.append("photo", state.file);
+    fd.append("photo_role", els.photoRole.value);
+  }
   fd.append("trailer_type", els.trailerType.value);
   fd.append("load_type", els.loadType.value);
-  fd.append("photo_role", els.photoRole.value);
   fd.append("report_lang", els.reportLang.value);
   var bed = numOrNull(els.bedLength.value), loadLen = numOrNull(els.loadLength.value), wt = numOrNull(els.weight.value);
   if (bed !== null) fd.append("bed_length_ft", bed);
@@ -460,6 +521,19 @@ function applyAnalysis(j){
   state.ds = j.detections;
   state.measurements = j.measurements || null;
   state.inputs = j.inputs || {};
+  state.cross = j.crosscheck || null;
+  state.extraSets = [];
+  state.photoSets = j.photo_sets || [];
+  state.primaryIdx = 0;
+  if (state.photoSets.length > 1){
+    var roles = state.photoSets.map(function(s){ return s.role; });
+    var pIdx = roles.indexOf("side");
+    if (pIdx < 0) pIdx = 0;
+    state.primaryIdx = pIdx;
+    state.photoSets.forEach(function(s, i){
+      if (i !== pIdx) state.extraSets.push(s.detections);
+    });
+  }
   state.activeId = null;
   state.addMode = false;
   els.resultsCard.style.display = "block";
@@ -467,9 +541,11 @@ function applyAnalysis(j){
     els.photo.src = "data:" + (j.overlay_mime || "image/png") + ";base64," + j.overlay_png_base64;
   }
   var lat = j.run && j.run.total_latency_s != null ? " in " + j.run.total_latency_s + "s" : "";
-  els.resultSub.textContent = "Analysis finished" + lat + ". Tap any finding to see it on the photo.";
+  var nPhotos = j.run && j.run.photos > 1 ? " · " + j.run.photos + " photos" : "";
+  els.resultSub.textContent = "Analysis finished" + lat + nPhotos + ". Tap any finding to see it on the photo.";
   renderWarnings(j.warnings || []);
   renderAll();
+  renderOtherViews();
   renderRunNotes(j.run);
   els.resultsCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -545,6 +621,21 @@ function renderHighlight(pulse){
   els.hl.classList.toggle("below", b.y < 12);
   els.hlLabel.textContent = kindName(d) + (d.confidence != null ? " " + Math.round(d.confidence*100) + "%" : "");
   if (pulse){ els.hl.classList.remove("pulse"); void els.hl.offsetWidth; els.hl.classList.add("pulse"); }
+}
+
+function renderOtherViews(){
+  var box = els.otherViews;
+  if (!state.photoSets || state.photoSets.length < 2){ box.innerHTML = ""; return; }
+  var html = '<p class="hint" style="margin-top:10px;">Also used for these verdicts:</p>';
+  state.photoSets.forEach(function(s, i){
+    if (i === (state.primaryIdx || 0)) return;
+    var counts = {};
+    (s.detections.detections || []).forEach(function(d){ counts[d.kind] = (counts[d.kind] || 0) + 1; });
+    var parts = Object.keys(counts).map(function(k){ return counts[k] + " " + (KIND_NAMES[k] || k.replace(/_/g, " ")).toLowerCase(); });
+    html += '<div class="frowline"><span class="fname">' + esc(ROLE_NAMES[s.role] || s.role) + '</span>' +
+      '<span class="fconf">' + esc(parts.join(" · ") || "nothing readable") + '</span></div>';
+  });
+  box.innerHTML = html;
 }
 
 function renderFindings(){
@@ -847,7 +938,7 @@ function recheck(){
   fetch("/verdicts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ detections: state.ds, measurements: state.measurements, inputs: state.inputs })
+    body: JSON.stringify({ detections: state.ds, measurements: state.measurements, inputs: state.inputs, sets: [state.ds].concat(state.extraSets || []), crosscheck: state.cross || null })
   })
     .then(function(r){ return r.json(); })
     .then(function(j){
@@ -901,7 +992,9 @@ function fillPrintCard(){
     + (meas ? "<h2>Measurements (visual estimates, calibrated from the bed length given)</h2>" + meas : "")
     + '<div class="pcFoot">This report card is a photo-based check, not a DOT inspection. '
     + "A photo cannot verify strap tension, tie-down working load limit ratings, or load weight; "
-    + "checks needing those numbers are marked COULD NOT TELL rather than guessed.</div>";
+    + "checks needing those numbers are marked COULD NOT TELL rather than guessed.<br>"
+    + "Keep checking on the road (49 CFR 392.9): re-examine the load and its tie-downs within the first 50 miles, "
+    + "then every 3 hours or 150 miles, and after every stop where the load was touched.</div>";
 }
 els.listenBtn.addEventListener("click", function(){
   if (!("speechSynthesis" in window)){ setStatus("This browser cannot read aloud."); return; }

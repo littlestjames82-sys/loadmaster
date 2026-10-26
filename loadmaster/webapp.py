@@ -136,14 +136,22 @@ def _normalize_verdicts(raw) -> list[dict] | None:
     return None
 
 
-def _call_rules(fn, ds_dict, ds_obj, measurements, inputs, crosscheck=None):
+def _call_rules(fn, ds_dict, ds_obj, measurements, inputs, crosscheck=None, extra_sets=None):
     """Call the rules entry point with whatever shape it accepts.
 
     The Day 3 engine's evaluate_rules takes a LIST of detection sets
     (one per photo of the load), so the pool leads with that shape.
+    extra_sets are the additional photos' detection-set dicts for a
+    multi-photo run: verdicts are computed over ALL of them.
     """
     sets_dicts = [ds_dict] if isinstance(ds_dict, dict) else ds_dict
     sets_objs = [ds_obj] if ds_obj is not None else sets_dicts
+    for extra in extra_sets or []:
+        sets_dicts.append(extra)
+        try:
+            sets_objs.append(DetectionSet.from_dict(extra))
+        except Exception:
+            sets_objs.append(extra)
     pool = {
         "sets": sets_objs,
         "detections": ds_dict,
@@ -196,7 +204,7 @@ def _call_rules(fn, ds_dict, ds_obj, measurements, inputs, crosscheck=None):
     raise RuntimeError("could not call the rules entry point")
 
 
-def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict, crosscheck=None):
+def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict, crosscheck=None, extra_sets=None):
     """Return (verdicts | None, warnings, raw_report | None). Never raises."""
     warnings: list[str] = []
     try:
@@ -223,7 +231,7 @@ def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict, cro
     except Exception:
         ds_obj = None
     try:
-        raw = _call_rules(fn, ds_dict, ds_obj, measurements, _rules_inputs(inputs), crosscheck=crosscheck)
+        raw = _call_rules(fn, ds_dict, ds_obj, measurements, _rules_inputs(inputs), crosscheck=crosscheck, extra_sets=extra_sets)
     except Exception as exc:
         return None, [
             f"verdicts not computed: the rules engine call failed "
@@ -408,81 +416,179 @@ def _gallery_html(entries: list[dict]) -> str:
     return "".join(parts)
 
 
+@app.get("/manifest.webmanifest")
+def manifest():
+    return {
+        "name": "LoadMaster",
+        "short_name": "LoadMaster",
+        "description": "Checks a loaded trailer against federal cargo securement rules (49 CFR Part 393) and says in plain words what to fix.",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0d0e13",
+        "theme_color": "#0d0e13",
+        "icons": [
+            {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    }
+
+
+@app.get("/icon-192.png")
+def icon_192():
+    from fastapi.responses import FileResponse
+
+    return FileResponse(Path(__file__).parent / "icon-192.png", media_type="image/png")
+
+
+@app.get("/icon-512.png")
+def icon_512():
+    from fastapi.responses import FileResponse
+
+    return FileResponse(Path(__file__).parent / "icon-512.png", media_type="image/png")
+
+
 @app.get("/gallery", response_class=HTMLResponse)
 def gallery() -> str:
     return _gallery_html(load_gallery_entries())
 
 
+def _analyze_one_photo(photo_path: Path, trailer_type: str, load_type: str,
+                       role: str, bed_length_ft: float | None, out_dir: Path) -> dict:
+    """One photo through the pipeline. Returns its detection set,
+    measurements (when a bed length supports them), overlay, cross-
+    check records, and warnings. Raises only for a photo the
+    pipeline itself rejects."""
+    ds, run_record = run_pipeline(
+        photo_path, trailer_type, load_type, role,
+        out_dir, bed_length_ft=bed_length_ft, crosscheck=True,
+    )
+    warnings: list[str] = []
+    outputs = run_record.get("outputs", {})
+    measurements = None
+    if bed_length_ft is not None:
+        m_path = outputs.get("measurements")
+        if m_path and Path(m_path).is_file():
+            measurements = json.loads(Path(m_path).read_text(encoding="utf-8"))
+        else:
+            warnings.append(
+                "measurements requested but the measurement stage produced no output"
+            )
+    overlay_b64 = None
+    try:
+        overlay_b64 = _overlay_b64(outputs.get("overlay"))
+    except Exception as exc:
+        warnings.append(f"overlay could not be rendered ({type(exc).__name__}: {exc})")
+    for entry in run_record.get("prompts", []):
+        if entry.get("status") == "error":
+            warnings.append(
+                f"camera check {entry['prompt']!r} failed after "
+                f"{entry.get('attempts')} attempts: {entry.get('error')}"
+            )
+    return {
+        "role": role,
+        "detections": ds.to_dict(),
+        "measurements": measurements,
+        "overlay_png_base64": overlay_b64,
+        "crosscheck": run_record.get("crosscheck") or [],
+        "prompts": run_record.get("prompts", []),
+        "wheel_filter": run_record.get("wheel_filter"),
+        "notes": list(ds.notes),
+        "warnings": warnings,
+    }
+
+
 @app.post("/analyze")
 def analyze(
-    photo: UploadFile = File(...),
+    photo: UploadFile | None = File(None),
+    photos: list[UploadFile] | None = File(None),
+    photo_role: str = Form("side"),
+    photo_roles: list[str] | None = Form(None),
     trailer_type: str = Form("unknown"),
     load_type: str = Form("generic"),
-    photo_role: str = Form("side"),
     bed_length_ft: float | None = Form(None),
     load_length_ft: float | None = Form(None),
     weight_lb: float | None = Form(None),
     report_lang: str = Form("en"),
 ):
-    """Run the full pipeline on one uploaded photo."""
+    """Run the full pipeline on one photo, or on a SET of photos of
+    the same load (send repeated `photos` + `photo_roles` fields).
+    With a set, verdicts are computed over every photo's evidence:
+    the side view carries the measurements, the rear view judges
+    lights and plate, close-ups carry the tie-down count."""
     if report_lang not in ("en", "es"):
         report_lang = "en"
     started = time.monotonic()
-    raw = photo.file.read()
-    if not raw:
-        return JSONResponse({"error": "empty photo upload"}, status_code=400)
-    suffix = Path(photo.filename or "photo.jpg").suffix or ".jpg"
+
+    uploads: list[tuple[UploadFile, str]] = []
+    if photos:
+        roles = list(photo_roles or [])
+        for i, up in enumerate(photos[:4]):
+            uploads.append((up, roles[i] if i < len(roles) else "side"))
+    elif photo is not None:
+        uploads.append((photo, photo_role))
+    if not uploads:
+        return JSONResponse({"error": "no photo uploaded"}, status_code=400)
+
     inputs = _user_inputs(trailer_type, load_type, bed_length_ft, load_length_ft, weight_lb)
     warnings: list[str] = []
 
     with tempfile.TemporaryDirectory(prefix="loadmaster-") as tmp:
         tmp_dir = Path(tmp)
-        photo_path = tmp_dir / f"photo{suffix}"
-        photo_path.write_bytes(raw)
-        try:
-            ds, run_record = run_pipeline(
-                photo_path, trailer_type, load_type, photo_role,
-                tmp_dir / "out", bed_length_ft=bed_length_ft,
-                crosscheck=True,
+        jobs = []
+        for i, (up, role) in enumerate(uploads):
+            raw = up.file.read()
+            if not raw:
+                return JSONResponse({"error": "empty photo upload"}, status_code=400)
+            suffix = Path(up.filename or "photo.jpg").suffix or ".jpg"
+            p = tmp_dir / f"photo{i}{suffix}"
+            p.write_bytes(raw)
+            jobs.append((p, role))
+
+        # The primary photo carries measurements and the overlay the
+        # corrections UI works on: the first side view, else the first.
+        primary_idx = next((i for i, (_, r) in enumerate(jobs) if r == "side"), 0)
+
+        def work(i_role):
+            i, (p, role) = i_role
+            return _analyze_one_photo(
+                p, trailer_type, load_type, role,
+                bed_length_ft if i == primary_idx else None,
+                tmp_dir / f"out{i}",
             )
+
+        try:
+            if len(jobs) == 1:
+                results = [work((0, jobs[0]))]
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+
+                with ThreadPoolExecutor(max_workers=min(4, len(jobs))) as pool:
+                    results = list(pool.map(work, enumerate(jobs)))
         except Exception as exc:
             return JSONResponse(
                 {"error": f"could not process that photo ({type(exc).__name__}: {exc})"},
                 status_code=400,
             )
-        detections = ds.to_dict()
-        outputs = run_record.get("outputs", {})
 
-        measurements = None
-        if bed_length_ft is not None:
-            m_path = outputs.get("measurements")
-            if m_path and Path(m_path).is_file():
-                measurements = json.loads(Path(m_path).read_text(encoding="utf-8"))
-            else:
-                warnings.append(
-                    "measurements requested but the measurement stage produced no output"
-                )
-
-        overlay_b64 = None
-        try:
-            overlay_b64 = _overlay_b64(outputs.get("overlay"))
-        except Exception as exc:
-            warnings.append(f"overlay could not be rendered ({type(exc).__name__}: {exc})")
-
-        for entry in run_record.get("prompts", []):
-            if entry.get("status") == "error":
-                warnings.append(
-                    f"camera check {entry['prompt']!r} failed after "
-                    f"{entry.get('attempts')} attempts: {entry.get('error')}"
-                )
+        for r in results:
+            warnings.extend(r["warnings"])
+        primary = results[primary_idx]
+        detections = primary["detections"]
+        measurements = primary["measurements"]
+        cross_records: list[dict] = []
+        for r in results:
+            cross_records.extend(r["crosscheck"])
+        extra_sets = [
+            r["detections"] for i, r in enumerate(results) if i != primary_idx
+        ]
 
         verdicts = None
         rules_report = None
         report = None
-        cross_records = run_record.get("crosscheck")
         if load_length_ft is not None:
             verdicts, v_warnings, rules_report = compute_verdicts(
-                detections, measurements, inputs, crosscheck=cross_records
+                detections, measurements, inputs,
+                crosscheck=cross_records, extra_sets=extra_sets,
             )
             warnings.extend(v_warnings)
             if verdicts:
@@ -500,15 +606,25 @@ def analyze(
             "report": report,
             "crosscheck": cross_records,
             "rules": rules_report,
-            "overlay_png_base64": overlay_b64,
+            "overlay_png_base64": primary["overlay_png_base64"],
             "overlay_mime": "image/jpeg",
+            "photo_sets": [
+                {
+                    "role": r["role"],
+                    "detections": r["detections"],
+                    "overlay_png_base64": r["overlay_png_base64"],
+                    "notes": r["notes"],
+                }
+                for r in results
+            ],
             "inputs": inputs,
             "warnings": warnings,
             "run": {
                 "total_latency_s": round(time.monotonic() - started, 2),
-                "prompts": run_record.get("prompts", []),
-                "wheel_filter": run_record.get("wheel_filter"),
-                "notes": list(ds.notes),
+                "prompts": primary["prompts"],
+                "wheel_filter": primary["wheel_filter"],
+                "notes": primary["notes"],
+                "photos": len(results),
             },
         }
 
@@ -534,6 +650,17 @@ async def verdicts_only(request: Request):
             {"error": "body.detections must be a detection set object"},
             status_code=400,
         )
+    # Multi-photo runs hand back every set plus the cross-check
+    # records from /analyze, so a recheck sees the same evidence the
+    # first verdict did (the cross-check can only demote, and it must
+    # not silently un-demote after a correction).
+    extra_sets = None
+    sets_in = body.get("sets")
+    if isinstance(sets_in, list) and len(sets_in) > 1:
+        extra_sets = [s for s in sets_in[1:] if isinstance(s, dict) and "detections" in s]
+    cross_records = body.get("crosscheck")
+    if not isinstance(cross_records, list):
+        cross_records = None
     inputs = body.get("inputs") or body.get("user_inputs") or {}
     measurements = body.get("measurements")
     warnings: list[str] = []
@@ -554,7 +681,9 @@ async def verdicts_only(request: Request):
                 f"measurements could not be derived ({type(exc).__name__}: {exc})"
             )
 
-    verdicts, v_warnings, rules_report = compute_verdicts(ds_dict, measurements, inputs)
+    verdicts, v_warnings, rules_report = compute_verdicts(
+        ds_dict, measurements, inputs, crosscheck=cross_records, extra_sets=extra_sets
+    )
     warnings.extend(v_warnings)
     return {
         "verdicts": verdicts,
