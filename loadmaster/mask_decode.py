@@ -18,6 +18,7 @@ original-image coordinates.
 
 from __future__ import annotations
 
+import bisect
 import re
 from dataclasses import dataclass, field
 
@@ -113,46 +114,168 @@ class MaskRaster:
             data=bytes(data),
         )
 
+    def _row_runs(self) -> list[list[tuple[int, int]]]:
+        """Per-row runs of set pixels as inclusive (x1, x2) pairs,
+        in local (raster) coordinates."""
+        rows: list[list[tuple[int, int]]] = []
+        w, data = self.width, self.data
+        for y in range(self.height):
+            row = data[y * w : (y + 1) * w]
+            runs: list[tuple[int, int]] = []
+            x = 0
+            while True:
+                a = row.find(b"\x01", x)
+                if a < 0:
+                    break
+                b = row.find(b"\x00", a)
+                if b < 0:
+                    b = w
+                runs.append((a, b - 1))
+                x = b
+            rows.append(runs)
+        return rows
+
+    def _components(self) -> list[tuple[int, dict[int, list[tuple[int, int]]]]]:
+        """8-connected components as (pixel count, row runs) pairs,
+        largest first. Runs are inclusive (x1, x2) in local coords."""
+        rows = self._row_runs()
+        # Union-find over runs, keyed by (row, run index).
+        parent: dict[tuple[int, int], tuple[int, int]] = {}
+
+        def find(k: tuple[int, int]) -> tuple[int, int]:
+            while parent[k] != k:
+                parent[k] = parent[parent[k]]
+                k = parent[k]
+            return k
+
+        def union(a: tuple[int, int], b: tuple[int, int]) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        sizes: dict[tuple[int, int], int] = {}
+        for y, runs in enumerate(rows):
+            for i, (a, b) in enumerate(runs):
+                key = (y, i)
+                parent[key] = key
+                sizes[key] = b - a + 1
+                if y == 0:
+                    continue
+                for j, (pa, pb) in enumerate(rows[y - 1]):
+                    # 8-connectivity: runs touching or one pixel apart join.
+                    if a - 1 <= pb and pa - 1 <= b:
+                        union(key, (y - 1, j))
+        if not parent:
+            return []
+        totals: dict[tuple[int, int], int] = {}
+        members: dict[tuple[int, int], dict[int, list[tuple[int, int]]]] = {}
+        for (y, i), size in sizes.items():
+            root = find((y, i))
+            totals[root] = totals.get(root, 0) + size
+            members.setdefault(root, {}).setdefault(y, []).append(rows[y][i])
+        comps = [(totals[root], members[root]) for root in totals]
+        comps.sort(key=lambda c: c[0], reverse=True)
+        return comps
+
+    def _largest_component_rows(self) -> dict[int, list[tuple[int, int]]] | None:
+        """Row runs of the largest 8-connected component, or None.
+
+        A SAM mask can hold several disconnected blobs (a trailer
+        rail sliver plus the trailer body). A single outline polygon
+        can only hug one of them, so it hugs the biggest; the bitmap
+        stays the source of truth for everything else.
+        """
+        comps = self._components()
+        return comps[0][1] if comps else None
+
     def polygon(self, max_points: int = 240) -> list[list[int]]:
         """Outer boundary of the bitmap as [x, y] points in sent-image
-        coordinates (Moore-neighbour tracing, stride-simplified)."""
-        w, h, data = self.width, self.height, self.data
+        coordinates.
+
+        Moore-neighbour tracing of the LARGEST connected component.
+        The walk carries a proper backtrack state (current pixel +
+        direction to the last background pixel examined) and stops
+        when a state repeats, which is Jacob's stopping criterion in
+        state form: the boundary is traced exactly once. The Day 1
+        version stopped at the first re-entry of the start pixel,
+        traced whatever component held the first set pixel in scan
+        order, and reduced the trailer mask to a 230x38 px sliver
+        (a 0.4% stray blob) of its 3038x1033 bitmap. If the trace
+        still degenerates (a hair-thin component), the component's
+        tight bbox is returned instead of a 2-point "polygon".
+        """
+        comp = self._largest_component_rows()
+        if not comp:
+            return []
+        for runs in comp.values():
+            runs.sort()
+
+        starts: dict[int, list[int]] = {
+            y: [a for a, _ in runs] for y, runs in comp.items()
+        }
 
         def inside(x: int, y: int) -> bool:
-            return 0 <= x < w and 0 <= y < h and data[y * w + x] != 0
+            runs = comp.get(y)
+            if not runs:
+                return False
+            s = starts[y]
+            i = bisect.bisect_right(s, x) - 1
+            return i >= 0 and runs[i][0] <= x <= runs[i][1]
 
         start = None
-        for y in range(h):
-            for x in range(w):
-                if data[y * w + x]:
-                    start = (x, y)
-                    break
-            if start:
-                break
-        if start is None:
-            return []
+        for y in sorted(comp):
+            start = (comp[y][0][0], y)
+            break
+        assert start is not None
 
-        # Moore tracing, clockwise, starting west of the start pixel.
+        # Moore tracing, clockwise. `back` is the direction from the
+        # current pixel to the backtrack pixel (the last background
+        # pixel examined); the start pixel is entered from the west,
+        # matching scan order.
         dirs = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
+        vec_to_dir = {v: i for i, v in enumerate(dirs)}
+        n_comp = sum(b - a + 1 for runs in comp.values() for a, b in runs)
         boundary: list[tuple[int, int]] = []
         cur = start
-        back = 4  # came from the west
-        limit = 4 * w * h + 16
+        back = 4
+        seen: set[tuple[tuple[int, int], int]] = set()
+        limit = 8 * n_comp + 64
         steps = 0
         while steps < limit:
             steps += 1
+            state = (cur, back)
+            if state in seen:
+                break  # loop closed: the walk would repeat exactly
+            seen.add(state)
             boundary.append(cur)
             found = None
-            for k in range(8):
-                d = (back + 1 + k) % 8  # start just past the backtrack dir
+            new_back = back
+            prev = back  # direction of the last background pixel examined
+            for k in range(1, 9):
+                d = (back + k) % 8
                 nx, ny = cur[0] + dirs[d][0], cur[1] + dirs[d][1]
                 if inside(nx, ny):
                     found = (nx, ny)
-                    back = (d + 4) % 8
+                    bx = cur[0] + dirs[prev][0] - nx
+                    by = cur[1] + dirs[prev][1] - ny
+                    new_back = vec_to_dir[(bx, by)]
                     break
-            if found is None or found == start:
+                prev = d
+            if found is None:
                 break
-            cur = found
+            cur, back = found, new_back
+
+        distinct = set(boundary)
+        if len(distinct) < 3:
+            xs = [x for runs in comp.values() for a, b in runs for x in (a, b)]
+            ys = list(comp)
+            x1, x2, y1, y2 = min(xs), max(xs), min(ys), max(ys)
+            return [
+                [self.offset_x + x1, self.offset_y + y1],
+                [self.offset_x + x2, self.offset_y + y1],
+                [self.offset_x + x2, self.offset_y + y2],
+                [self.offset_x + x1, self.offset_y + y2],
+            ]
 
         if len(boundary) > max_points:
             stride = len(boundary) / float(max_points)

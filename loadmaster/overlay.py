@@ -30,21 +30,34 @@ KIND_COLORS = {
 def render_overlay(ds: DetectionSet, out_path: Path) -> Path:
     img = Image.open(ds.image_path).convert("RGB")
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    ldraw = ImageDraw.Draw(layer)
 
+    # Mask fills first. The bitmap IS the fill's alpha channel: a
+    # tile of the kind colour whose alpha is 110 exactly where the
+    # bitmap is set and 0 elsewhere, composited over the layer. (The
+    # Day 1 version pasted an alpha-0 fill through an L mask, which
+    # left the layer's alpha at 0 everywhere - the fills never
+    # rendered at all, and the polygon outlines were left doing all
+    # the visual work, badly; see BUILD_LOG Day 2.)
     for det in ds.detections:
         color = KIND_COLORS.get(det.kind, (255, 255, 255))
         if det.mask_rle:
             try:
                 raster = MaskRaster.from_rle(det.mask_rle)
-                mask_img = Image.frombytes(
+                alpha = Image.frombytes(
                     "L", (raster.width, raster.height),
                     bytes(110 if b else 0 for b in raster.data),
                 )
-                fill = Image.new("RGBA", (raster.width, raster.height), color + (0,))
-                layer.paste(fill, (int(raster.offset_x), int(raster.offset_y)), mask_img)
+                tile = Image.new("RGBA", (raster.width, raster.height), color + (255,))
+                tile.putalpha(alpha)
+                full = Image.new("RGBA", img.size, (0, 0, 0, 0))
+                full.paste(tile, (int(raster.offset_x), int(raster.offset_y)))
+                layer = Image.alpha_composite(layer, full)
             except Exception:
                 pass  # a bad mask must not kill the overlay; box still draws
+
+    ldraw = ImageDraw.Draw(layer)
+    for det in ds.detections:
+        color = KIND_COLORS.get(det.kind, (255, 255, 255))
         if det.polygon and len(det.polygon) >= 3:
             ldraw.polygon([tuple(p) for p in det.polygon], outline=color + (200,), width=2)
 

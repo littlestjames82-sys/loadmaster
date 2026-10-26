@@ -48,6 +48,53 @@ def test_bad_raster_length_rejected():
         MaskRaster(width=4, height=4, data=b"\x01\x00")
 
 
+def _raster_from_rects(w: int, h: int, rects: list[tuple[int, int, int, int]]) -> MaskRaster:
+    """rects are (x, y, width, height) filled blocks in local coords."""
+    data = bytearray(w * h)
+    for rx, ry, rw, rh in rects:
+        for y in range(ry, ry + rh):
+            for x in range(rx, rx + rw):
+                data[y * w + x] = 1
+    return MaskRaster(width=w, height=h, offset_x=0, offset_y=0, data=bytes(data))
+
+
+def test_polygon_traces_largest_component_not_first_blob():
+    # A small blob sits earlier in scan order than the big body; the
+    # Day 1 tracer outlined the small one (the trailer-sliver bug).
+    r = _raster_from_rects(60, 30, [(2, 2, 3, 3), (20, 10, 30, 15)])
+    poly = r.polygon()
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    assert min(xs) >= 20 and max(xs) <= 49
+    assert min(ys) >= 10 and max(ys) <= 24
+
+
+def test_polygon_covers_mask_recall():
+    # L-shaped mask: the filled polygon must contain the mask pixels.
+    from PIL import Image, ImageDraw
+
+    r = _raster_from_rects(40, 40, [(5, 5, 30, 10), (5, 5, 10, 30)])
+    poly = r.polygon()
+    assert len(poly) >= 10
+    img = Image.new("L", (40, 40), 0)
+    ImageDraw.Draw(img).polygon([tuple(p) for p in poly], fill=1)
+    filled = img.tobytes()
+    inside = sum(
+        1 for i, v in enumerate(r.data) if v and filled[i]
+    )
+    assert inside >= 0.95 * r.set_pixels
+    xs = [p[0] for p in poly]
+    ys = [p[1] for p in poly]
+    assert (min(xs), max(xs), min(ys), max(ys)) == (5, 34, 5, 34)
+
+
+def test_polygon_small_block_not_degenerate():
+    r = _raster_from_rects(10, 10, [(4, 4, 2, 2)])
+    poly = r.polygon()
+    assert len(poly) >= 4
+    assert len({tuple(p) for p in poly}) >= 3
+
+
 @pytest.mark.skipif(not HAVE_PARSER, reason="meta-sam-parser not installed")
 def test_day0_proof_fixture_decodes():
     text = FIXTURE.read_text(encoding="utf-8")

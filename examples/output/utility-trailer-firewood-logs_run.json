@@ -3,6 +3,7 @@
  "trailer_type": "utility",
  "load_type": "firewood",
  "photo_role": "side",
+ "bed_length_ft": 8.0,
  "prompts": [
   {
    "prompt": "trailer",
@@ -10,7 +11,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 5.76,
+   "latency_s": 6.49,
    "objects": 1,
    "error": null
   },
@@ -20,7 +21,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 2.3,
+   "latency_s": 2.77,
    "objects": 1,
    "error": null
   },
@@ -30,7 +31,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 4.04,
+   "latency_s": 5.36,
    "objects": 7,
    "error": null
   },
@@ -49,5 +50,17 @@
   "raw": 1,
   "kept": 1,
   "clusters": 1
+ },
+ "measurements_summary": {
+  "rear_overhang": "measured",
+  "load_centroid_vs_axle": "estimate",
+  "tarp_coverage": "not_applicable",
+  "tiedown_coverage_gaps": "could_not_measure"
+ },
+ "outputs": {
+  "detections": "examples/output/utility-trailer-firewood-logs_detections.json",
+  "overlay": "examples/output/utility-trailer-firewood-logs_overlay.png",
+  "measurements": "examples/output/utility-trailer-firewood-logs_measurements.json",
+  "run": "examples/output/utility-trailer-firewood-logs_run.json"
  }
 }

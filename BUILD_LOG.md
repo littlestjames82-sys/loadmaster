@@ -3,6 +3,109 @@
 Newest first. Every entry is work done inside the hackathon window,
 Oct 26 - Nov 4, 2026.
 
+## Oct 26, 2026 - Day 2: calibrated measurement layer + overlay fix
+
+(Pulled forward from the Oct 28 plan slot.)
+
+Built:
+- `loadmaster/measure.py` - the Tier 1.2 measurement layer.
+  Calibration comes from the user-supplied bed length (once per run)
+  and the trailer_bed mask's tight extent along x, giving
+  pixels-per-inch. On top of that: rear overhang in inches (rearmost
+  cargo bitmap edge vs the bed's rear edge), load centroid vs axle
+  (bitmap-weighted cargo centroid against the axle estimate, in
+  inches and % of bed length, with an uncertainty range of one
+  bitmap-weighted standard deviation of the cargo pixels, floored at
+  2 in), tarp coverage for loose-material loads (tarp/canvas bitmap
+  union overlapping the cargo union, % covered and % exposed), and
+  tie-down coverage gaps (anchor centres mapped onto the bed axis,
+  spans between anchors and the bed ends, largest gap in inches).
+  Every measurement object carries value, unit, method, source
+  detection ids, and a confidence basis, in a JSON shape consistent
+  with the Day 1 detection records. Bitmap statistics are computed
+  run by run from the RLE, never per-pixel in Python and never from
+  polygons.
+- `loadmaster/pipeline.py` - optional measurement stage:
+  `--bed-length-ft N` writes `<photo>_measurements.json` alongside
+  the detections and records the length plus a per-measurement
+  status summary in the run record.
+
+Honesty rules, enforced in code (each is a test case):
+- No bed length or no trailer_bed detection -> calibration fails
+  and every inch measurement reports "could_not_measure" with the
+  reason named. A bed that is taller than wide in frame is also
+  refused (the side-view x-axis mapping does not apply).
+- The centroid figure is labeled a visual estimate with the flags
+  `visual_estimate` and `not_a_weight_measurement` wherever it
+  appears. A photo shows where the bulk sits, not how heavy it is.
+- Tarp coverage carries `proxy_only` (matrix finding: tarp prompts
+  are a proxy, not yet validated on a real tarp-over-load photo).
+  With no tarp detected on a loose load it reports 0% covered as an
+  ESTIMATE, with the basis stating that a missed detection is not
+  proof of absence.
+- Tie-down gaps degrade when anchor positions cannot be placed on
+  the bed axis - the normal case, since counting anchors live in
+  separate close-up photos whose coordinates cannot be mapped onto
+  the side photo. The measurement says exactly that.
+
+Overlay / polygon fix (the Day 1 firewood overlay was misleading):
+- Root cause 1, traced wrong: `MaskRaster.polygon()` traced
+  whichever component held the first set pixel in scan order and
+  stopped at the first re-entry of the start pixel. The trailer
+  bitmap has 3 components (measured): the body, 1,228,045 px (98%),
+  plus strays of 20,661 px and 4,889 px. The shipped polygon traced
+  the 4,889 px stray - a 230x38 px sliver at the mask's top edge.
+  Fix: trace the LARGEST component, with a proper backtrack state
+  (current pixel + direction to the last background pixel examined)
+  and stop when a state repeats (Jacob's criterion in state form).
+  A first attempt that compared arrival directions failed the
+  L-shape recall test at 71% (the walk looped and the stride
+  sampler cut chords through the interior); the state-based walk
+  passes at >=95% recall. Hair-thin components fall back to their
+  tight bbox instead of a 2-point "polygon" (the Day 1 degenerate
+  log polygon). The stored trailer polygon now spans
+  x 229-3263, y 1208-2135, against the bitmap body's tight bbox
+  x 226-3263, y 1208-2138.
+- Root cause 2, fills never rendered: the Day 1 overlay pasted an
+  alpha-0 fill through an L mask, which leaves the layer's alpha at
+  0 - proven by sampling the shipped PNG: at the trailer bitmap's
+  centroid the overlay pixel was identical to the source photo, and
+  only ~109k pixels differed in the whole image (boxes, labels,
+  outlines). What read as a colour wash was the broken outline
+  path doing all the visual work. Fix: the bitmap is the fill
+  tile's alpha channel (110 where set, 0 elsewhere), composited
+  with alpha_composite, so fills hug the bitmap exactly.
+  Verification on the re-rendered firewood overlay: 0 changed
+  pixels in rows 0-816 (the sky and treetops), 1.18M changed pixels
+  concentrated in the load band, and a visual pass confirms the log
+  tints follow the log shapes with the sky clean. All three stored
+  example detection sets had their polygons recomputed from the
+  stored bitmaps and their overlays re-rendered with the fixed
+  code (no new SAM calls for those two).
+
+Tests: 36 passed (pytest, foreground run) - the 16 Day 1 tests plus
+20 new: calibration math and its three refusal paths, overhang past
+the bed edge and at zero, centroid behind/ahead of the axle and its
+degradation without an axle, tarp at 50% / absent / not-applicable,
+tie-down gap spans and their degradation, report JSON provenance,
+polygon largest-component + recall + non-degeneracy, and an overlay
+test asserting the fill tints bitmap pixels only.
+
+Proof run (live pipeline, firewood photo, `--bed-length-ft 8` -
+an ASSUMED bed length for this dev photo, recorded in the run
+record, not measured ground truth): detections reproduced Day 1
+exactly (trailer 0.863, 7 log masks, 1 axle estimate, full-frame
+strap empty). Measurements: rear overhang 0.0 in (no log reaches
+the bed's rear edge); centroid estimate 22.7 in behind the axle
++/- 19.7 in, centroid at 50.9% of bed vs the axle at 27.2%; tarp
+not applicable (firewood); tie-down gaps could_not_measure (no
+in-frame anchors, as designed). One caveat recorded honestly:
+SAM's trailer mask on this photo runs to the frame's right edge
+(it takes in the pickup bed behind the trailer), so the calibrated
+extent is the mask's extent, not a tape-measured bed - the layer
+measures the mask it is given, and tap-to-correct is the remedy
+when a mask overreaches.
+
 ## Oct 26, 2026 - Day 1: SAM pipeline, overlay, editable detections
 
 (Pulled forward from the Oct 27 plan slot.)

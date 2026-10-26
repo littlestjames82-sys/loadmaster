@@ -1,0 +1,97 @@
+{
+ "schema": "loadmaster.measurements/1",
+ "image_path": "/home/hatch/workspace/goals/meta-global-ai-developer-hackathon-loadmaster-entry/files/dev-images/utility-trailer-firewood-logs.jpg",
+ "image_width": 3264,
+ "image_height": 2448,
+ "load_type": "firewood",
+ "calibration": {
+  "status": "calibrated",
+  "bed_length_ft": 8.0,
+  "pixels_per_inch": 31.6458,
+  "bed_detection_id": "det-0001-372794",
+  "bed_extent_px": 3038.0,
+  "bed_min_x": 226.0,
+  "bed_max_x": 3264.0,
+  "axis": "x (front at bed_min_x, rear at bed_max_x)",
+  "method": "pixels-per-inch = trailer_bed mask bitmap tight extent along x (3038 px) / user-supplied bed length (8.0 ft = 96 in)",
+  "reason": null
+ },
+ "measurements": [
+  {
+   "name": "rear_overhang",
+   "status": "measured",
+   "value": 0.0,
+   "unit": "in",
+   "method": "rearmost cargo extent (mask bitmap tight edge, else bbox) minus the bed rear edge, scaled by the calibration; rear = image-right end of the bed extent",
+   "source_detection_ids": [
+    "det-0002-e6e8bf",
+    "det-0001-372794"
+   ],
+   "confidence_basis": "cargo det-0002-e6e8bf conf 0.66",
+   "reason": null,
+   "uncertainty": null,
+   "flags": []
+  },
+  {
+   "name": "load_centroid_vs_axle",
+   "status": "estimate",
+   "value": {
+    "offset_in": 22.67,
+    "direction": "behind the axle (toward the rear)",
+    "centroid_bed_position_pct": 50.85,
+    "axle_bed_position_pct": 27.24
+   },
+   "unit": "in",
+   "method": "bitmap-weighted centroid of all cargo masks along the bed axis vs the axle estimate position (midpoint of axle centres when several), scaled by the calibration; positive offset = centroid behind the axle",
+   "source_detection_ids": [
+    "det-0002-e6e8bf",
+    "det-0003-78ab04",
+    "det-0004-62a11c",
+    "det-0005-dbd23c",
+    "det-0006-15ab34",
+    "det-0007-e5b454",
+    "det-0008-4b5909",
+    "axle-0009-7b52f5"
+   ],
+   "confidence_basis": "cargo det-0002-e6e8bf conf 0.66; cargo det-0003-78ab04 conf 0.70; cargo det-0004-62a11c conf 0.69; cargo det-0005-dbd23c conf 0.69; cargo det-0006-15ab34 conf 0.60; cargo det-0007-e5b454 conf 0.61; cargo det-0008-4b5909 conf 0.62; axle_estimate axle-0009-7b52f5 conf 0.92",
+   "reason": null,
+   "uncertainty": {
+    "plus_minus_in": 19.7,
+    "basis": "one bitmap-weighted standard deviation of the cargo pixels along the bed axis (the load's own spread), floored at 2 in; a photo shows where the bulk sits, not how heavy it is"
+   },
+   "flags": [
+    "visual_estimate",
+    "not_a_weight_measurement"
+   ]
+  },
+  {
+   "name": "tarp_coverage",
+   "status": "not_applicable",
+   "value": null,
+   "unit": "percent",
+   "method": "tarp/canvas mask area overlapping the cargo area, as a percentage of the cargo area (bitmap union on the image canvas)",
+   "source_detection_ids": [],
+   "confidence_basis": "",
+   "reason": "load type is 'firewood', not loose material; the tarp check only applies to loose loads",
+   "uncertainty": null,
+   "flags": [
+    "proxy_only"
+   ]
+  },
+  {
+   "name": "tiedown_coverage_gaps",
+   "status": "could_not_measure",
+   "value": null,
+   "unit": "in",
+   "method": "tie-down anchor positions mapped onto the bed axis (anchor centre x in bed coordinates); spans between neighbouring anchors and the bed ends, scaled by the calibration",
+   "source_detection_ids": [],
+   "confidence_basis": "",
+   "reason": "no tie-down detections in this detection set: tie-downs are counted from anchor close-up photos plus tap-to-correct, and close-up coordinates live in the close-up photo's own image space, so they cannot be placed on this photo's bed axis",
+   "uncertainty": null,
+   "flags": []
+  }
+ ],
+ "notes": [
+  "load_centroid_vs_axle is a visual estimate of where the load's bulk sits; it is not a weight measurement"
+ ]
+}
