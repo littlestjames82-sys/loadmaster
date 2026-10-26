@@ -404,3 +404,20 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   measurements, fix-and-recheck with a before/after delta, and
   tap-to-correct detections. Full plan in the commit history from
   Day 1 on.
+
+## Working app — LIVE on Modal (Oct 26, 2026, evening)
+
+- Hosted deployment is up: the FastAPI app (`loadmaster/webapp.py`) is
+  deployed on Modal via GitHub Actions (`modal deploy modal_app.py`,
+  repository secrets for the Modal token; the Meta API key lives in a
+  Modal secret, never in the repo).
+- Verified end to end through the public URL: `GET /health` returns
+  `{"ok": true}`; `POST /analyze` on the firewood dev photo returned
+  HTTP 200 with 9 real SAM detections (trailer bed 0.863, seven log
+  masks 0.60–0.70, axle estimate 0.918) and verdicts identical to the
+  local pipeline run for the same photo: forward blocking CHECK THIS,
+  weight placement CHECK THIS, tie-down count / overhang / edge
+  protection / aggregate WLL COULD NOT TELL (with reasons).
+- This is the judges' live demo link; the same URL serves the mobile
+  web UI (photo in, verdict cards out, tap-to-correct recheck through
+  `/verdicts` without re-running SAM).
