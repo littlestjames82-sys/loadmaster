@@ -1,0 +1,28 @@
+name: Deploy LoadMaster to Modal
+
+# Deploys the working app (modal_app.py) to Ryan's Modal workspace.
+# Requires two repository secrets (Settings > Secrets and variables >
+# Actions): MODAL_TOKEN_ID and MODAL_TOKEN_SECRET, from a Modal API
+# token in the littlestjames82-sys workspace. Until those secrets are
+# added, runs fail at the deploy step - that is expected.
+# The app also needs a Modal secret named "meta-model-api" holding
+# META_API_KEY (created in the Modal dashboard, never in this repo).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install modal
+      - run: modal deploy modal_app.py
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
