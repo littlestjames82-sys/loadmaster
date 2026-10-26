@@ -26,9 +26,9 @@
   select,input[type=number]{width:100%; min-height:50px; background:var(--card2); color:var(--text); border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; font-size:16px;}
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
-  #photoPick{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; border-radius:12px; border:1.5px dashed rgba(245,179,1,.55); background:#232017; color:var(--amber); font-weight:700; font-size:16px; cursor:pointer; padding:12px;}
-  #photoPick.done{border-style:solid; border-color:var(--green); color:#d9ffd9; background:#123324;}
-  #photoInput{position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;}
+  .pickBtn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; border-radius:12px; border:1.5px dashed rgba(245,179,1,.55); background:#232017; color:var(--amber); font-weight:700; font-size:16px; cursor:pointer; padding:12px; text-align:center;}
+  .pickBtn.done{border-style:solid; border-color:var(--green); color:#d9ffd9; background:#123324;}
+  .hiddenFile{position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;}
   .bigBtn{display:block; width:100%; min-height:56px; margin-top:16px; border-radius:12px; border:none; background:var(--amber); color:#191200; font:inherit; font-weight:800; font-size:17px; cursor:pointer; padding:12px;}
   .bigBtn:disabled{background:#3a4350; color:#8fa1b3; cursor:default;}
   .spinner{width:22px; height:22px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--amber); animation:spin 1s linear infinite; display:inline-block; vertical-align:-5px; margin-right:9px;}
@@ -107,8 +107,12 @@
   <section class="card" id="setupCard">
     <h2>Check a load</h2>
     <p class="sub">Take a photo of the loaded trailer. A side view with the wheels in frame works best; use a close-up of each tie-down anchor when you want tie-downs counted.</p>
-    <label id="photoPick" for="photoInput">&#128247; Take or choose a photo</label>
-    <input id="photoInput" type="file" accept="image/*" capture="environment">
+    <div class="grid2">
+      <label class="pickBtn" id="cameraPick" for="cameraInput">&#128247; Take a photo</label>
+      <label class="pickBtn" id="photoPick" for="photoInput">&#128444;&#65038; Choose a photo</label>
+    </div>
+    <input id="cameraInput" class="hiddenFile" type="file" accept="image/*" capture="environment">
+    <input id="photoInput" class="hiddenFile" type="file" accept="image/*">
     <div class="grid2">
       <div>
         <label class="flabel" for="trailerType">Trailer type</label>
@@ -220,7 +224,7 @@ var KIND_NAMES = {"trailer_bed":"Trailer bed","cargo":"Cargo","axle_estimate":"A
 var KIND_COLORS = {"trailer_bed":"#4da3ff","cargo":"#ffa02e","axle_estimate":"#b388ff","tarp":"#aa6eff","tiedown_closeup":"#35d07f","chain_hint":"#ffe14d","user_added":"#00dcdc","wheel":"#ffaa00"};
 
 var els = {};
-["photoPick","photoInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
+["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
  "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes"
@@ -242,19 +246,23 @@ function pctBox(d){
 }
 
 /* ---------- setup / analyze ---------- */
-els.photoInput.addEventListener("change", function(){
-  var f = els.photoInput.files && els.photoInput.files[0];
+function onPhotoChosen(input){
+  var f = input.files && input.files[0];
   if (!f) return;
   state.file = f;
   if (state.localUrl) URL.revokeObjectURL(state.localUrl);
   state.localUrl = URL.createObjectURL(f);
   els.photoPick.textContent = "Photo ready: " + f.name;
   els.photoPick.classList.add("done");
+  els.cameraPick.textContent = "Photo ready: " + f.name;
+  els.cameraPick.classList.add("done");
   els.analyzeBtn.disabled = false;
   els.resultsCard.style.display = "block";
   els.photo.src = state.localUrl;
   els.resultSub.textContent = "Ready when you are. Tap Analyze photo.";
-});
+}
+els.photoInput.addEventListener("change", function(){ onPhotoChosen(els.photoInput); });
+els.cameraInput.addEventListener("change", function(){ onPhotoChosen(els.cameraInput); });
 
 var timer = null;
 function showProgress(on, label){
