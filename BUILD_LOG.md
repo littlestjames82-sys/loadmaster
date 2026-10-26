@@ -495,3 +495,16 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   the live behavior, second-opinion line included.
 - Modal function now keeps a warm container for 5 minutes after a
   request (scaledown_window), cutting judge-facing cold starts.
+
+## Full dev-set QA sweep (Oct 26, 2026, evening)
+
+- All 8 remaining development photos ran through the app end to
+  end (top-down beams, skip-bin rear, steel-rack rear and side,
+  wheel-loader side and distant, canvas-tarp truck, farm hay):
+  every run HTTP 200, zero warnings, cross-check ok, Spark report
+  present. Harder views (top-down, distant, rear) degraded to
+  COULD NOT TELL instead of inventing verdicts; the clean farm
+  hay side view produced real CHECK THIS verdicts. No crashes,
+  no fake passes across the set.
+- docs/ARCHITECTURE.md added: pipeline diagram, the counting-basis
+  and demote-only cross-check decisions, refusal-as-a-feature.

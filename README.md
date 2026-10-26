@@ -48,7 +48,7 @@ and see exactly which verdicts changed.
 - Tap-to-correct + instant recheck with a visible before/after delta;
   guided capture with photo quality gates; a printable one-page
   report card; a judges' sample gallery of real runs.
-- 101 automated tests (pytest), all passing.
+- 104 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 
