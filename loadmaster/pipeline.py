@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import threading
 from pathlib import Path
 
 from PIL import Image
@@ -83,6 +84,20 @@ def run_pipeline(
     rules_inputs: UserInputs | None = None,
     crosscheck: bool = False,
 ) -> tuple[DetectionSet, dict]:
+    # The cross-check reads the photo independently, so it runs
+    # CONCURRENTLY with the SAM prompts instead of after them: its
+    # latency hides inside the segmentation time. ask_spark never
+    # raises (failures arrive as status="error" results).
+    cc_box: dict = {}
+
+    def _run_cc() -> None:
+        cc_box["result"] = ask_spark(photo, photo_role)
+
+    cc_thread: threading.Thread | None = None
+    if crosscheck:
+        cc_thread = threading.Thread(target=_run_cc, daemon=True)
+        cc_thread.start()
+
     with Image.open(photo) as im:
         orig_w, orig_h = im.size
 
@@ -187,21 +202,28 @@ def run_pipeline(
         run_record["measurements_summary"] = {
             m.name: m.status for m in report.measurements
         }
-    # Tier 2.5 cross-check: Muse Spark reads THIS photo
-    # independently. It runs whenever requested, whether or not the
-    # pipeline itself computes verdicts (the web app computes them
-    # from the run record). The raw record stays in the run record
-    # for audit either way.
+    # Tier 2.5 cross-check: collect the concurrent Spark read (see
+    # the top of this function). The raw record stays in the run
+    # record for audit, whether or not the pipeline itself computes
+    # verdicts (the web app computes them from the run record).
     cross_records: list[dict] = []
-    if crosscheck:
-        cc = ask_spark(photo, photo_role)
-        cross_records.append(cc.to_dict())
-        run_record["crosscheck"] = cross_records
-        if cc.status == "error":
+    if crosscheck and cc_thread is not None:
+        cc_thread.join(timeout=180)
+        cc = cc_box.get("result")
+        if cc is None:
             ds.notes.append(
-                f"cross-check ERRORED for role {photo_role} ({cc.error}); "
-                "verdicts were computed without Spark's view"
+                f"cross-check did not finish within 180s for role "
+                f"{photo_role}; verdicts were computed without "
+                "Spark's view"
             )
+        else:
+            cross_records.append(cc.to_dict())
+            run_record["crosscheck"] = cross_records
+            if cc.status == "error":
+                ds.notes.append(
+                    f"cross-check ERRORED for role {photo_role} ({cc.error}); "
+                    "verdicts were computed without Spark's view"
+                )
     if rules_inputs is not None:
         # Day 3 stage (optional): deterministic verdicts.
         verdicts = evaluate_rules(

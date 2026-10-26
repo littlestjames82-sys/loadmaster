@@ -530,3 +530,16 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
 - Submission draft updated with the same numbers, the competitor
   line, and a re-cut demo structure (magic moment in the first
   45 seconds, technology named at 2:20, live link close).
+
+## Latency hardening (Oct 26, 2026, evening)
+
+- First live Spanish run exposed a real risk: a cold container
+  plus a slow-upstream evening pushed /analyze past the old
+  300 s function timeout. Two fixes: the cross-check now runs
+  CONCURRENTLY with the SAM prompts (its latency hides inside
+  segmentation instead of stacking after it; a 180 s join cap
+  keeps a hung read from stalling verdicts), and the Modal
+  function timeout is 600 s so a slow run finishes instead of
+  dying. Local proof under the same slow conditions: full
+  close-up run with cross-check and a Spanish Spark report in
+  55.8 s.
