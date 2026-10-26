@@ -31,6 +31,48 @@ jobs:
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+      - name: Smoke test the live app from this runner
+        run: |
+          {
+            echo "=== live smoke: POST /analyze (firewood overlay photo, Spanish report) ==="
+            python3 - <<'PYEOF'
+          import base64, json, time, urllib.request, uuid
+          entry = json.load(open("loadmaster/gallery/firewood.json"))
+          img = base64.b64decode(entry["overlay_png_base64"])
+          open("/tmp/smoke.jpg", "wb").write(img)
+          boundary = uuid.uuid4().hex
+          fields = {
+              "trailer_type": "utility", "load_type": "firewood",
+              "photo_role": "side", "bed_length_ft": "8",
+              "load_length_ft": "8", "report_lang": "es",
+          }
+          parts = []
+          for k, v in fields.items():
+              parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+          parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="photo"; filename="smoke.jpg"\r\nContent-Type: image/jpeg\r\n\r\n'.encode() + img + b"\r\n")
+          parts.append(f"--{boundary}--\r\n".encode())
+          body = b"".join(parts)
+          req = urllib.request.Request(
+              "https://littlestjames82-sys--loadmaster-fastapi-app.us-east.modal.run/analyze",
+              data=body, method="POST")
+          req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+          t0 = time.time()
+          try:
+              with urllib.request.urlopen(req, timeout=420) as resp:
+                  data = json.loads(resp.read())
+              dt = time.time() - t0
+              dets = (data.get("detections") or {}).get("detections", [])
+              rep = data.get("report") or {}
+              cc = (data.get("crosscheck") or [{}])
+              print(f"HTTP 200 in {dt:.1f}s | detections: {len(dets)} | verdicts: {len(data.get('verdicts') or [])}")
+              print(f"crosscheck: {cc[0].get('status') if cc else None} | report: {rep.get('source')} lang={rep.get('lang')}")
+              print(f"headline: {rep.get('headline')}")
+              for w in (data.get("warnings") or [])[:3]:
+                  print("warning:", w[:300])
+          except Exception as exc:
+              print(f"SMOKE FAILED after {time.time()-t0:.1f}s: {type(exc).__name__}: {exc}")
+          PYEOF
+          } >> diag-output.txt 2>&1
       - name: Post logs as an issue
         run: |
           python3 - <<'PYEOF'
