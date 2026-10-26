@@ -3,6 +3,81 @@
 Newest first. Every entry is work done inside the hackathon window,
 Oct 26 - Nov 4, 2026.
 
+## Oct 26, 2026 - Working app: hosted service + mobile UI (Day 4, pulled forward)
+
+Ryan rejected the static phone preview as a mockup and asked for
+the real app on his phone, so the hosted app was built the same day:
+
+- `loadmaster/webapp.py` - a FastAPI service around the existing
+  pipeline (nothing in the pipeline was changed to serve it):
+  - `GET /` serves the mobile UI. `GET /health` returns {"ok": true}.
+  - `POST /analyze` (multipart photo + trailer_type, load_type,
+    photo_role, optional bed_length_ft / load_length_ft / weight_lb)
+    runs the real pipeline via pipeline.run_pipeline: SAM prompt
+    pack in parallel, decoded masks, detections, annotated overlay
+    (returned as base64 JPEG), Day 2 measurements when a bed length
+    is given, Day 3 verdicts when a load length is given. SAM prompt
+    failures surface per prompt in run.prompts and in warnings -
+    never as a silent empty result.
+  - `POST /verdicts` (JSON: detections + measurements + inputs)
+    recomputes ONLY the rules verdicts - no SAM calls. This is the
+    tap-to-correct + instant recheck path.
+  - The rules engine is imported lazily through an adapter: the web
+    layer passes it a list of detection sets (its native shape),
+    maps the UI's cargo load types (firewood, steel, ...) onto the
+    engine's load classes (general / heavy_wheeled_tracked /
+    loose_material), and normalizes verdicts for the UI. When the
+    engine is absent or fails, verdicts are omitted and the warnings
+    say why.
+- `loadmaster/web_ui.html` - the mobile UI, evolved from the
+  preview's design: photo picker with camera capture, trailer /
+  load / view pickers, bed length + load length + optional weight,
+  progress state, overlay with findings list (tap to highlight),
+  verdict cards (status, CFR citation, finding, minimum fix),
+  measurements panel, and tap-to-correct - add a missed tie-down by
+  tapping the photo, or remove a finding - which calls /verdicts and
+  updates the verdict cards without re-running the analysis. The
+  honesty line is on the page. Vanilla JS, no CDN.
+- `loadmaster/sam_client.py` - the one credential change: when the
+  META_API_KEY environment variable is set it is sent as a Bearer
+  header; otherwise the connector dynamic_credentials path is used
+  exactly as before (and its import is now optional so the module
+  loads where no connector exists). The key is never printed or
+  stored.
+- `modal_app.py` (repo root) - the Modal deployment: app
+  "loadmaster", image built from requirements.txt with the
+  loadmaster package included, the FastAPI app exposed via
+  @modal.asgi_app(), 300 s timeout, and the API key supplied by the
+  Modal secret named "meta-model-api" (env var META_API_KEY).
+- requirements.txt gained fastapi, uvicorn, python-multipart, modal.
+
+Local live proof (this VM, real API credential via the connector;
+server run with uvicorn on 127.0.0.1, then shut down):
+- POST /analyze, firewood dev photo, utility / firewood / side,
+  bed 8 ft, load 6 ft: HTTP 200 in 13.1 s total. 9 detections
+  (trailer bed, 7 log cargo masks, 1 axle estimate); all 4 SAM
+  prompts ok or honestly empty on attempt 1 (full-frame "ratchet
+  strap" empty, as the Day 0 matrix says it must be); 4
+  measurements returned; 6 verdicts returned (heavy equipment and
+  tarp coverage correctly not applicable to this load) including
+  forward_blocking CHECK_THIS and weight_placement CHECK_THIS with
+  CFR citations; overlay returned; zero warnings.
+- POST /verdicts with two user tie-down marks injected into that
+  detection set: HTTP 200, 0.02 s, no SAM calls. tiedown_count
+  flipped from COULD_NOT_TELL to PASS ("2 tie-downs counted;
+  393.110 requires 2 for a 6 ft load"); aggregate_wll stayed
+  COULD_NOT_TELL, honestly, for want of ratings and weight.
+- GET / returned the UI with all key element ids present.
+- Full pytest suite re-run after these changes: 89 passed.
+
+Deploy readiness: modal_app.py imports cleanly against modal
+1.6.2 and is deploy-ready, but NO deploy was run - this VM has no
+Modal CLI auth yet. Remaining human steps: `modal setup` (or token)
+on an authenticated machine, Ryan creates the "meta-model-api"
+secret with his Meta API key (`modal secret create meta-model-api
+META_API_KEY=...`; the key never passes through Muse), then
+`modal deploy modal_app.py`.
+
 ## Oct 26, 2026 - Day 3: deterministic rules engine + dual-model cross-check
 
 (Pulled forward from the Oct 29 plan slot.)

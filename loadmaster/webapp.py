@@ -135,8 +135,15 @@ def _normalize_verdicts(raw) -> list[dict] | None:
 
 
 def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
-    """Call the rules entry point with whatever shape it accepts."""
+    """Call the rules entry point with whatever shape it accepts.
+
+    The Day 3 engine's evaluate_rules takes a LIST of detection sets
+    (one per photo of the load), so the pool leads with that shape.
+    """
+    sets_dicts = [ds_dict] if isinstance(ds_dict, dict) else ds_dict
+    sets_objs = [ds_obj] if ds_obj is not None else sets_dicts
     pool = {
+        "sets": sets_objs,
         "detections": ds_dict,
         "detection_set": ds_obj,
         "measurements": measurements,
@@ -168,6 +175,8 @@ def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
         pass
     last_error: Exception | None = None
     for args in (
+        (sets_objs, measurements, inputs),
+        (sets_dicts, measurements, inputs),
         (ds_dict, measurements, inputs),
         (ds_obj, measurements, inputs),
         (ds_dict, inputs),
@@ -185,7 +194,7 @@ def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
 
 
 def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict):
-    """Return (verdicts | None, warnings). Never raises."""
+    """Return (verdicts | None, warnings, raw_report | None). Never raises."""
     warnings: list[str] = []
     try:
         from . import rules as rules_module
@@ -193,7 +202,7 @@ def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict):
         return None, [
             f"verdicts not computed: the rules engine is not available yet "
             f"({type(exc).__name__}: {exc})"
-        ]
+        ], None
     fn = None
     for name in _RULES_ENTRY_POINTS:
         candidate = getattr(rules_module, name, None)
@@ -204,23 +213,24 @@ def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict):
         return None, [
             "verdicts not computed: the rules engine module is present "
             "but exposes no known entry point"
-        ]
+        ], None
     ds_obj = None
     try:
         ds_obj = DetectionSet.from_dict(ds_dict)
     except Exception:
         ds_obj = None
     try:
-        raw = _call_rules(fn, ds_dict, ds_obj, measurements, inputs)
+        raw = _call_rules(fn, ds_dict, ds_obj, measurements, _rules_inputs(inputs))
     except Exception as exc:
         return None, [
             f"verdicts not computed: the rules engine call failed "
             f"({type(exc).__name__}: {exc})"
-        ]
+        ], None
     verdicts = _normalize_verdicts(raw)
     if verdicts is None:
         warnings.append("verdicts not computed: the rules engine returned nothing usable")
-    return verdicts, warnings
+    report = raw if isinstance(raw, dict) else None
+    return verdicts, warnings, report
 
 
 # ---------------------------------------------------------------------
@@ -327,14 +337,18 @@ def analyze(
                 )
 
         verdicts = None
+        rules_report = None
         if load_length_ft is not None:
-            verdicts, v_warnings = compute_verdicts(detections, measurements, inputs)
+            verdicts, v_warnings, rules_report = compute_verdicts(
+                detections, measurements, inputs
+            )
             warnings.extend(v_warnings)
 
         return {
             "detections": detections,
             "measurements": measurements,
             "verdicts": verdicts,
+            "rules": rules_report,
             "overlay_png_base64": overlay_b64,
             "overlay_mime": "image/jpeg",
             "inputs": inputs,
@@ -389,10 +403,11 @@ async def verdicts_only(request: Request):
                 f"measurements could not be derived ({type(exc).__name__}: {exc})"
             )
 
-    verdicts, v_warnings = compute_verdicts(ds_dict, measurements, inputs)
+    verdicts, v_warnings, rules_report = compute_verdicts(ds_dict, measurements, inputs)
     warnings.extend(v_warnings)
     return {
         "verdicts": verdicts,
+        "rules": rules_report,
         "measurements": measurements,
         "warnings": warnings,
         "latency_s": round(time.monotonic() - started, 3),
