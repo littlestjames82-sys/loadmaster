@@ -3,6 +3,7 @@
  "trailer_type": "unknown",
  "load_type": "generic",
  "photo_role": "closeup",
+ "bed_length_ft": null,
  "prompts": [
   {
    "prompt": "ratchet strap",
@@ -10,7 +11,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 4.68,
+   "latency_s": 3.85,
    "objects": 1,
    "error": null
   }
@@ -19,5 +20,39 @@
   "raw": 0,
   "kept": 0,
   "clusters": 0
+ },
+ "crosscheck": [
+  {
+   "photo": "/home/hatch/workspace/goals/meta-global-ai-developer-hackathon-loadmaster-entry/files/dev-images/ratchet-strap-container-closeup.jpg",
+   "photo_role": "closeup",
+   "status": "ok",
+   "model": "muse-spark-1.3",
+   "view": {
+    "tiedown_count": 2,
+    "straps_over_sharp_edge_without_protection": "yes"
+   },
+   "raw_answer": "{\"tiedown_count\": 2, \"straps_over_sharp_edge_without_protection\": \"yes\"}",
+   "latency_s": 8.54,
+   "attempts": 1,
+   "error": null
+  }
+ ],
+ "verdicts_summary": {
+  "PASS": 0,
+  "CHECK_THIS": 2,
+  "COULD_NOT_TELL": 4
+ },
+ "rules_inputs": {
+  "load_length_ft": 6.0,
+  "load_type": "general",
+  "weight_lb": null,
+  "tiedown_wll_lb": null,
+  "tiedown_attachment": "indirect"
+ },
+ "outputs": {
+  "detections": "examples/output/ratchet-strap-container-closeup_detections.json",
+  "overlay": "examples/output/ratchet-strap-container-closeup_overlay.png",
+  "verdicts": "examples/output/ratchet-strap-container-closeup_verdicts.json",
+  "run": "examples/output/ratchet-strap-container-closeup_run.json"
  }
 }

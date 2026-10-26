@@ -11,6 +11,14 @@ Usage:
 
 With --bed-length-ft, the Day 2 measurement layer also runs and a
 measurements JSON lands alongside the detections (see measure.py).
+
+With --rules, the Day 3 deterministic rules engine (rules.py) runs
+over this photo's detections + measurements + the user inputs given
+on the command line (--load-length-ft, --weight-lb, --load-category,
+--tiedown-wll-lb, --tiedown-attachment) and a verdicts JSON lands
+alongside. With --crosscheck, Muse Spark first reads the photo
+independently (crosscheck.py) and its view feeds the verdicts; the
+raw Spark answers are kept in the run record for audit.
 """
 
 from __future__ import annotations
@@ -22,12 +30,27 @@ from pathlib import Path
 
 from PIL import Image
 
+from .crosscheck import ask_spark
 from .detections import DetectionSet, filter_wheels_to_axle
 from .mask_decode import MaskRaster
 from .measure import write_measurements
 from .overlay import render_overlay
-from .prompt_packs import get_pack
+from .prompt_packs import HEAVY_LOAD_TYPES, LOOSE_LOAD_TYPES, get_pack
+from .rules import UserInputs, evaluate_rules
 from .sam_client import run_prompts
+
+
+def _rules_load_category(load_type: str, override: str | None) -> str:
+    """Map the pipeline's free-form load type onto the rules
+    engine's three categories (UserInputs.load_type)."""
+    if override:
+        return override
+    lt = (load_type or "").strip().lower()
+    if lt == "loose_material" or lt in LOOSE_LOAD_TYPES:
+        return "loose_material"
+    if lt in HEAVY_LOAD_TYPES:
+        return "heavy_wheeled_tracked"
+    return "general"
 
 
 def _scale_mask(raster: MaskRaster, sx: float, sy: float) -> dict:
@@ -57,6 +80,8 @@ def run_pipeline(
     photo_role: str,
     out_dir: Path,
     bed_length_ft: float | None = None,
+    rules_inputs: UserInputs | None = None,
+    crosscheck: bool = False,
 ) -> tuple[DetectionSet, dict]:
     with Image.open(photo) as im:
         orig_w, orig_h = im.size
@@ -151,6 +176,7 @@ def run_pipeline(
         "detections": str(det_path),
         "overlay": str(overlay_path),
     }
+    report = None
     if bed_length_ft is not None:
         # Day 2 measurement stage (optional): calibrated inches from
         # the user-supplied bed length. Degrades honestly inside
@@ -161,6 +187,31 @@ def run_pipeline(
         run_record["measurements_summary"] = {
             m.name: m.status for m in report.measurements
         }
+    if rules_inputs is not None:
+        # Day 3 stage (optional): deterministic verdicts. The
+        # cross-check (Tier 2.5) reads THIS photo independently
+        # first; its raw record stays in the run record for audit.
+        cross_records: list[dict] = []
+        if crosscheck:
+            cc = ask_spark(photo, photo_role)
+            cross_records.append(cc.to_dict())
+            run_record["crosscheck"] = cross_records
+            if cc.status == "error":
+                ds.notes.append(
+                    f"cross-check ERRORED for role {photo_role} ({cc.error}); "
+                    "verdicts were computed without Spark's view"
+                )
+        verdicts = evaluate_rules(
+            [ds],
+            report.to_dict() if report is not None else None,
+            rules_inputs,
+            crosscheck=cross_records,
+        )
+        v_path = out_dir / f"{stem}_verdicts.json"
+        v_path.write_text(json.dumps(verdicts, indent=1), encoding="utf-8")
+        outputs["verdicts"] = str(v_path)
+        run_record["verdicts_summary"] = verdicts["summary"]
+        run_record["rules_inputs"] = rules_inputs.to_dict()
     run_path = out_dir / f"{stem}_run.json"
     run_record["outputs"] = {**outputs, "run": str(run_path)}
     run_path.write_text(json.dumps(run_record, indent=1), encoding="utf-8")
@@ -176,13 +227,41 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--bed-length-ft", type=float, default=None,
                     help="trailer bed length in feet; enables the measurement stage")
+    ap.add_argument("--rules", action="store_true",
+                    help="run the Day 3 rules engine and write a verdicts JSON")
+    ap.add_argument("--crosscheck", action="store_true",
+                    help="Muse Spark reads the photo independently first "
+                         "(implies --rules); its view feeds the verdicts")
+    ap.add_argument("--load-length-ft", type=float, default=None,
+                    help="length of the LOAD in feet (rules input, 393.110)")
+    ap.add_argument("--load-category", default=None,
+                    choices=["general", "heavy_wheeled_tracked", "loose_material"],
+                    help="rules load category; default derives from --load-type")
+    ap.add_argument("--weight-lb", type=float, default=None,
+                    help="known load weight in lb (rules input, optional)")
+    ap.add_argument("--tiedown-wll-lb", type=float, default=None,
+                    help="uniform per-tie-down working load limit in lb (optional)")
+    ap.add_argument("--tiedown-attachment", default="indirect",
+                    choices=["direct", "indirect"],
+                    help="how the tie-downs attach (direct counts half rating)")
     args = ap.parse_args(argv)
 
     if not args.photo.is_file():
         print(f"photo not found: {args.photo}", file=sys.stderr)
         return 3
+    rules_inputs = None
+    if args.rules or args.crosscheck:
+        rules_inputs = UserInputs(
+            load_length_ft=args.load_length_ft,
+            load_type=_rules_load_category(args.load_type, args.load_category),
+            weight_lb=args.weight_lb,
+            tiedown_wll_lb=args.tiedown_wll_lb,
+            tiedown_attachment=args.tiedown_attachment,
+        )
     ds, record = run_pipeline(args.photo, args.trailer_type, args.load_type, args.role, args.out_dir,
-                              bed_length_ft=args.bed_length_ft)
+                              bed_length_ft=args.bed_length_ft,
+                              rules_inputs=rules_inputs,
+                              crosscheck=args.crosscheck)
     for p in record["prompts"]:
         line = f"  {p['prompt']!r}: {p['status']}, {p['objects']} object(s), {p['latency_s']}s, attempts {p['attempts']}"
         if p["error"]:
@@ -193,6 +272,11 @@ def main(argv: list[str] | None = None) -> int:
     if "measurements_summary" in record:
         print(f"measurements (bed length {record['bed_length_ft']} ft): "
               + ", ".join(f"{k}={v}" for k, v in record["measurements_summary"].items()))
+    if "verdicts_summary" in record:
+        s = record["verdicts_summary"]
+        print(f"verdicts: {s['PASS']} PASS, {s['CHECK_THIS']} CHECK_THIS, "
+              f"{s['COULD_NOT_TELL']} COULD_NOT_TELL"
+              + ("; cross-check ran" if "crosscheck" in record else ""))
     print(f"outputs: {record['outputs']}")
     if all(p["status"] == "error" for p in record["prompts"]):
         print("ALL prompts errored; see run record. Nothing was faked.", file=sys.stderr)

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LoadMaster</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#141b24; --card2:#1a232f; --line:rgba(255,255,255,.09);
+    --text:#eef3f8; --dim:#9db0c1; --amber:#f5b301; --green:#35d07f; --red:#ff6b5e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:16px; line-height:1.45;}
+  header{position:sticky; top:0; z-index:20; background:rgba(11,15,20,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); padding:12px 16px 10px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .bar{width:6px; height:34px; border-radius:3px; background:var(--amber);}
+  .brand h1{font-size:24px; margin:0; letter-spacing:.3px;}
+  .brand h1 span{color:var(--amber);}
+  .brand p{margin:0; font-size:12.5px; color:var(--dim);}
+  main{max-width:560px; margin:0 auto; padding:14px 12px 8px;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px;}
+  .card h2{font-size:17px; margin:0 0 4px;}
+  .card .sub{color:var(--dim); font-size:13.5px; margin:0 0 10px;}
+  label.flabel{display:block; font-size:13px; color:var(--dim); margin:12px 0 5px; font-weight:600; letter-spacing:.2px;}
+  select,input[type=number]{width:100%; min-height:50px; background:var(--card2); color:var(--text); border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; font-size:16px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  #photoPick{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; min-height:58px; border-radius:12px; border:1.5px dashed rgba(245,179,1,.55); background:#232017; color:var(--amber); font-weight:700; font-size:16px; cursor:pointer; padding:12px;}
+  #photoPick.done{border-style:solid; border-color:var(--green); color:#d9ffd9; background:#123324;}
+  #photoInput{position:absolute; width:1px; height:1px; opacity:0; overflow:hidden;}
+  .bigBtn{display:block; width:100%; min-height:56px; margin-top:16px; border-radius:12px; border:none; background:var(--amber); color:#191200; font:inherit; font-weight:800; font-size:17px; cursor:pointer; padding:12px;}
+  .bigBtn:disabled{background:#3a4350; color:#8fa1b3; cursor:default;}
+  .spinner{width:22px; height:22px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--amber); animation:spin 1s linear infinite; display:inline-block; vertical-align:-5px; margin-right:9px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  #progressCard{display:none;}
+  #errorBox{display:none; border-color:rgba(255,107,94,.55); background:#261512; color:#ffd9d4;}
+  #resultsCard{display:none;}
+  #photoWrap{position:relative; border-radius:12px; overflow:hidden; background:#000; touch-action:manipulation;}
+  #photoWrap.armed{outline:3px solid var(--green); outline-offset:-3px;}
+  #photo{display:block; width:100%; height:auto; user-select:none; -webkit-user-select:none;}
+  #hl{position:absolute; border:3px solid var(--amber); border-radius:6px; box-shadow:0 0 0 3px rgba(0,0,0,.45), inset 0 0 0 1px rgba(0,0,0,.35); pointer-events:none; display:none; z-index:5;}
+  #hl .hlLabel{position:absolute; left:-3px; top:-3px; transform:translateY(-100%); background:var(--amber); color:#111; font-size:12.5px; font-weight:700; padding:3px 9px; border-radius:6px 6px 6px 0; white-space:nowrap; max-width:78vw; overflow:hidden; text-overflow:ellipsis;}
+  #hl.below .hlLabel{transform:none; border-radius:0 0 6px 6px;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,179,1,.55);} 100%{box-shadow:0 0 0 14px rgba(245,179,1,0);}}
+  #hl.pulse{animation:pulse .8s ease-out 2;}
+  .pin{position:absolute; width:30px; height:30px; margin:-15px 0 0 -15px; border-radius:50%; background:rgba(163,230,53,.25); border:2.5px solid #a3e635; pointer-events:none; z-index:4;}
+  .pin::after{content:""; position:absolute; left:50%; top:50%; width:9px; height:9px; margin:-4.5px 0 0 -4.5px; border-radius:50%; background:#a3e635;}
+  .pin.active{background:rgba(245,179,1,.3); border-color:var(--amber);}
+  .pin.active::after{background:var(--amber);}
+  #addHint{position:absolute; left:50%; bottom:10px; transform:translateX(-50%); background:rgba(0,0,0,.82); color:#d9ffd9; border:1px solid var(--green); padding:7px 13px; border-radius:999px; font-size:13.5px; font-weight:600; display:none; z-index:6; white-space:nowrap;}
+  #photoWrap.armed #addHint{display:block;}
+  #summaryBar{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px;}
+  .pill{background:#0b0f14; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:14px;}
+  .pill b{color:var(--amber);}
+  .pill.green b{color:var(--green);}
+  .actions{display:flex; gap:10px; margin-top:12px;}
+  .btn{flex:1; min-height:52px; border-radius:12px; border:1.5px solid var(--green); background:#123324; color:#d9ffd9; font:inherit; font-weight:700; font-size:15.5px; cursor:pointer; padding:10px;}
+  .btn.armed{background:var(--green); color:#0b2413;}
+  #modeNote{color:var(--dim); font-size:13.5px; margin:10px 0 0; min-height:18px;}
+  .honesty{border-color:rgba(245,179,1,.45); background:#1d1a10;}
+  .honesty p{margin:0; font-size:15px;}
+  .verdict{border:1.5px solid var(--line); border-radius:12px; padding:12px 13px; margin:0 0 10px; background:var(--card2);}
+  .verdict .vhead{display:flex; align-items:center; gap:9px;}
+  .verdict .vname{font-weight:700; font-size:15.5px; flex:1; min-width:0;}
+  .chip{flex:0 0 auto; border-radius:999px; padding:4px 11px; font-size:12.5px; font-weight:800; letter-spacing:.3px;}
+  .chip.pass{background:#123324; color:var(--green); border:1px solid rgba(53,208,127,.5);}
+  .chip.check{background:#2b2103; color:var(--amber); border:1px solid rgba(245,179,1,.55);}
+  .chip.tell{background:#1c2634; color:var(--dim); border:1px solid var(--line);}
+  .verdict .vcite{color:var(--dim); font-size:12.5px; margin-top:2px;}
+  .verdict .vfind{font-size:14.5px; margin-top:7px;}
+  .verdict .vfix{font-size:14.5px; margin-top:7px; background:#0b0f14; border:1px solid var(--line); border-radius:9px; padding:8px 10px;}
+  .verdict .vfix b{color:var(--amber);}
+  .row{display:flex; align-items:center; gap:11px; width:100%; background:var(--card2); border:1.5px solid var(--line); border-radius:12px; padding:10px 8px 10px 13px; margin:0 0 9px; min-height:58px; cursor:pointer;}
+  .row.active{border-color:var(--amber);}
+  .dot{flex:0 0 auto; width:13px; height:13px; border-radius:50%;}
+  .rowMain{flex:1; min-width:0;}
+  .rowName{font-weight:700; font-size:15.5px;}
+  .rowSub{color:var(--dim); font-size:12.5px; margin-top:1px;}
+  .conf{flex:0 0 auto; background:#0b0f14; border:1px solid var(--line); border-radius:8px; padding:4px 8px; font-size:13.5px; font-weight:700; color:var(--text); text-align:center;}
+  .conf small{display:block; font-weight:400; color:var(--dim); font-size:9.5px; letter-spacing:.4px;}
+  .rm{flex:0 0 auto; width:44px; height:44px; border-radius:10px; border:1px solid var(--line); background:#2a1713; color:var(--red); font-size:19px; font-weight:700; cursor:pointer; line-height:1;}
+  .rm:active{background:#3d1e18;}
+  .empty{color:var(--dim); font-size:14.5px; padding:8px 2px;}
+  .mrow{display:flex; gap:9px; padding:8px 2px; border-bottom:1px solid var(--line); font-size:14.5px;}
+  .mrow:last-child{border-bottom:none;}
+  .mrow .mname{flex:1; min-width:0;}
+  .mrow .mval{flex:0 0 auto; text-align:right; font-weight:700;}
+  .mrow .mreason{color:var(--dim); font-size:12.5px; display:block; font-weight:400;}
+  .warn{color:#ffd9d4; background:#261512; border:1px solid rgba(255,107,94,.4); border-radius:10px; padding:9px 11px; font-size:13.5px; margin:0 0 8px;}
+  .noteline{color:var(--dim); font-size:12.5px; margin-top:6px;}
+  .noteline div{margin-top:4px;}
+  footer{max-width:560px; margin:0 auto; padding:4px 16px 30px; color:var(--dim); font-size:12.5px; text-align:center;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="bar"></div>
+    <div>
+      <h1>Load<span>Master</span></h1>
+      <p>Trailer load check &middot; 49 CFR 393</p>
+    </div>
+  </div>
+</header>
+<main>
+  <section class="card" id="setupCard">
+    <h2>Check a load</h2>
+    <p class="sub">Take a photo of the loaded trailer. A side view with the wheels in frame works best; use a close-up of each tie-down anchor when you want tie-downs counted.</p>
+    <label id="photoPick" for="photoInput">&#128247; Take or choose a photo</label>
+    <input id="photoInput" type="file" accept="image/*" capture="environment">
+    <div class="grid2">
+      <div>
+        <label class="flabel" for="trailerType">Trailer type</label>
+        <select id="trailerType">
+          <option value="unknown" selected>Not sure</option>
+          <option value="utility">Utility trailer</option>
+          <option value="flatbed">Flatbed</option>
+          <option value="lowboy">Lowboy</option>
+          <option value="gooseneck">Gooseneck</option>
+          <option value="dump">Dump trailer</option>
+          <option value="enclosed">Enclosed</option>
+        </select>
+      </div>
+      <div>
+        <label class="flabel" for="photoRole">Photo view</label>
+        <select id="photoRole">
+          <option value="side" selected>Side view</option>
+          <option value="rear">Rear three-quarter</option>
+          <option value="closeup">Tie-down close-up</option>
+        </select>
+      </div>
+    </div>
+    <label class="flabel" for="loadType">What is the load?</label>
+    <select id="loadType">
+      <option value="firewood" selected>Firewood</option>
+      <option value="logs">Logs / timber</option>
+      <option value="hay">Hay bales</option>
+      <option value="loose_material">Loose material (gravel, mulch)</option>
+      <option value="excavator">Excavator</option>
+      <option value="heavy_equipment">Heavy equipment</option>
+      <option value="wheel_loader">Wheel loader</option>
+      <option value="vehicle">Vehicle</option>
+      <option value="steel">Steel</option>
+      <option value="beams">Beams</option>
+      <option value="skip_bin">Container / skip bin</option>
+      <option value="generic">Something else</option>
+    </select>
+    <div class="grid3">
+      <div>
+        <label class="flabel" for="bedLength">Bed length (ft)</label>
+        <input id="bedLength" type="number" inputmode="decimal" min="0" step="0.5" placeholder="e.g. 16">
+      </div>
+      <div>
+        <label class="flabel" for="loadLength">Load length (ft)</label>
+        <input id="loadLength" type="number" inputmode="decimal" min="0" step="0.5" placeholder="e.g. 10">
+      </div>
+      <div>
+        <label class="flabel" for="weight">Weight (lb)</label>
+        <input id="weight" type="number" inputmode="numeric" min="0" step="50" placeholder="optional">
+      </div>
+    </div>
+    <button class="bigBtn" id="analyzeBtn" type="button" disabled>Analyze photo</button>
+    <p class="sub" style="margin:10px 0 0;">Bed length turns pixels into inches. Load length turns on the rule verdicts. Both can be left blank, and the app will say what it could not check.</p>
+  </section>
+
+  <section class="card" id="progressCard">
+    <p style="margin:0; font-size:15.5px;"><span class="spinner"></span><span id="progressText">Reading the photo&hellip;</span></p>
+    <p class="sub" style="margin:8px 0 0;">The camera checks run one after another on the server. <span id="progressElapsed">0s</span></p>
+  </section>
+
+  <section class="card" id="errorBox"></section>
+
+  <section class="card" id="resultsCard">
+    <h2>Results</h2>
+    <p class="sub" id="resultSub">What the camera found in your photo.</p>
+    <div id="photoWrap">
+      <img id="photo" alt="Analyzed trailer photo with findings outlined">
+      <div id="pins"></div>
+      <div id="hl"><span class="hlLabel" id="hlLabel"></span></div>
+      <div id="addHint">Tap the photo where the tie-down is</div>
+    </div>
+    <div id="summaryBar"></div>
+    <div class="actions">
+      <button class="btn" id="addBtn" type="button">+ Add a missed tie-down</button>
+    </div>
+    <p id="modeNote"></p>
+    <div id="warnings" style="margin-top:10px;"></div>
+  </section>
+
+  <section class="card" id="verdictCard" style="display:none;">
+    <h2>Rule verdicts</h2>
+    <p class="sub">Deterministic checks against 49 CFR 393, from the findings and measurements. Correct a finding above and the verdicts recheck instantly, without re-reading the photo.</p>
+    <div id="verdicts"></div>
+    <p class="noteline" id="recheckNote"></p>
+  </section>
+
+  <section class="card" id="measureCard" style="display:none;">
+    <h2>Measurements</h2>
+    <p class="sub">Calibrated from the bed length you gave. Placement is a visual estimate only.</p>
+    <div id="measurements"></div>
+  </section>
+
+  <section class="card" id="findingsCard" style="display:none;">
+    <h2>What the camera found</h2>
+    <p class="sub">Tap a finding to see it on the photo. Tap &#10005; if the camera got it wrong.</p>
+    <div id="findings"></div>
+    <div class="noteline" id="runNotes"></div>
+  </section>
+
+  <section class="card honesty">
+    <p><b>The honesty line:</b> a photo can count visible tie-downs and flag placement. It cannot verify strap tension, tie-down ratings, or load weight.</p>
+  </section>
+</main>
+<footer>LoadMaster by Ghost Developer Studio &middot; Checks a loaded trailer against federal cargo securement rules and tells you what to fix before you roll.</footer>
+
+<script>
+"use strict";
+var KIND_NAMES = {"trailer_bed":"Trailer bed","cargo":"Cargo","axle_estimate":"Axle position","tarp":"Tarp / cover","tiedown_closeup":"Tie-down","chain_hint":"Possible chain","user_added":"Added by you","wheel":"Wheel"};
+var KIND_COLORS = {"trailer_bed":"#4da3ff","cargo":"#ffa02e","axle_estimate":"#b388ff","tarp":"#aa6eff","tiedown_closeup":"#35d07f","chain_hint":"#ffe14d","user_added":"#00dcdc","wheel":"#ffaa00"};
+
+var els = {};
+["photoPick","photoInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
+ "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
+ "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes"
+].forEach(function(id){ els[id] = document.getElementById(id); });
+
+var state = {
+  file: null, localUrl: null,
+  ds: null, measurements: null, inputs: null,
+  activeId: null, addMode: false, userSeq: 0, rechecking: false
+};
+
+function numOrNull(v){ var n = parseFloat(v); return (v === "" || isNaN(n)) ? null : n; }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function kindName(d){ return d.label && d.source !== "sam" ? d.label : (KIND_NAMES[d.kind] || d.kind.replace(/_/g," ")); }
+function isTiedown(d){ return d.kind === "tiedown_closeup" && !d.bonus_only; }
+function pctBox(d){
+  var W = state.ds.image_width, H = state.ds.image_height;
+  return { x: d.bbox[0]/W*100, y: d.bbox[1]/H*100, w: (d.bbox[2]-d.bbox[0])/W*100, h: (d.bbox[3]-d.bbox[1])/H*100 };
+}
+
+/* ---------- setup / analyze ---------- */
+els.photoInput.addEventListener("change", function(){
+  var f = els.photoInput.files && els.photoInput.files[0];
+  if (!f) return;
+  state.file = f;
+  if (state.localUrl) URL.revokeObjectURL(state.localUrl);
+  state.localUrl = URL.createObjectURL(f);
+  els.photoPick.textContent = "Photo ready: " + f.name;
+  els.photoPick.classList.add("done");
+  els.analyzeBtn.disabled = false;
+  els.resultsCard.style.display = "block";
+  els.photo.src = state.localUrl;
+  els.resultSub.textContent = "Ready when you are. Tap Analyze photo.";
+});
+
+var timer = null;
+function showProgress(on, label){
+  els.progressCard.style.display = on ? "block" : "none";
+  if (label) els.progressText.textContent = label;
+  if (on){
+    var t0 = Date.now();
+    els.progressElapsed.textContent = "0s";
+    timer = setInterval(function(){ els.progressElapsed.textContent = Math.round((Date.now()-t0)/1000) + "s"; }, 500);
+  } else if (timer){ clearInterval(timer); timer = null; }
+}
+function showError(msg){
+  els.errorBox.style.display = "block";
+  els.errorBox.textContent = msg;
+}
+function clearError(){ els.errorBox.style.display = "none"; els.errorBox.textContent = ""; }
+
+els.analyzeBtn.addEventListener("click", function(){
+  if (!state.file) return;
+  clearError();
+  els.analyzeBtn.disabled = true;
+  showProgress(true, "Reading the photo: looking for the trailer, the load, the wheels and the straps\u2026");
+  var fd = new FormData();
+  fd.append("photo", state.file);
+  fd.append("trailer_type", els.trailerType.value);
+  fd.append("load_type", els.loadType.value);
+  fd.append("photo_role", els.photoRole.value);
+  var bed = numOrNull(els.bedLength.value), loadLen = numOrNull(els.loadLength.value), wt = numOrNull(els.weight.value);
+  if (bed !== null) fd.append("bed_length_ft", bed);
+  if (loadLen !== null) fd.append("load_length_ft", loadLen);
+  if (wt !== null) fd.append("weight_lb", wt);
+  fetch("/analyze", { method: "POST", body: fd })
+    .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+    .then(function(res){
+      showProgress(false);
+      els.analyzeBtn.disabled = false;
+      if (!res.ok || res.j.error){ showError(res.j.error || "The analysis failed. Nothing was guessed in its place; try again."); return; }
+      applyAnalysis(res.j);
+    })
+    .catch(function(err){
+      showProgress(false);
+      els.analyzeBtn.disabled = false;
+      showError("Could not reach the LoadMaster server (" + err.message + "). Nothing was analyzed.");
+    });
+});
+
+function applyAnalysis(j){
+  state.ds = j.detections;
+  state.measurements = j.measurements || null;
+  state.inputs = j.inputs || {};
+  state.activeId = null;
+  state.addMode = false;
+  els.resultsCard.style.display = "block";
+  if (j.overlay_png_base64){
+    els.photo.src = "data:" + (j.overlay_mime || "image/png") + ";base64," + j.overlay_png_base64;
+  }
+  var lat = j.run && j.run.total_latency_s != null ? " in " + j.run.total_latency_s + "s" : "";
+  els.resultSub.textContent = "Analysis finished" + lat + ". Tap any finding to see it on the photo.";
+  renderWarnings(j.warnings || []);
+  renderAll();
+  renderRunNotes(j.run);
+  els.resultsCard.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderRunNotes(run){
+  var html = "";
+  if (run && run.prompts){
+    run.prompts.forEach(function(p){
+      var line = "Camera check \u201c" + esc(p.prompt) + "\u201d: " + esc(p.status);
+      if (p.status === "ok") line += " (" + p.objects + " found, " + p.latency_s + "s)";
+      if (p.status === "error") line += " \u2014 " + esc(p.error || "failed");
+      html += "<div>" + line + "</div>";
+    });
+  }
+  if (run && run.notes){ run.notes.forEach(function(n){ html += "<div>" + esc(n) + "</div>"; }); }
+  els.runNotes.innerHTML = html;
+}
+
+function renderWarnings(list){
+  els.warnings.innerHTML = "";
+  (list || []).forEach(function(w){
+    var d = document.createElement("div");
+    d.className = "warn";
+    d.textContent = w;
+    els.warnings.appendChild(d);
+  });
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){
+  renderSummary(); renderPins(); renderHighlight(false);
+  renderFindings(); renderVerdicts(state._verdicts || null); renderMeasurements();
+}
+
+function renderSummary(){
+  if (!state.ds){ els.summaryBar.innerHTML = ""; return; }
+  var dets = state.ds.detections;
+  var td = dets.filter(isTiedown).length;
+  var user = dets.filter(function(d){ return d.source === "user"; }).length;
+  els.summaryBar.innerHTML =
+    '<span class="pill">Detections: <b>' + dets.length + '</b></span>' +
+    '<span class="pill green">Tie-downs marked: <b>' + td + '</b></span>' +
+    (user ? '<span class="pill">Added by you: <b>' + user + '</b></span>' : '');
+}
+
+function renderPins(){
+  els.pins.innerHTML = "";
+  if (!state.ds) return;
+  state.ds.detections.forEach(function(d){
+    if (d.source !== "user") return;
+    var b = pctBox(d);
+    var p = document.createElement("div");
+    p.className = "pin" + (d.id === state.activeId ? " active" : "");
+    p.style.left = (b.x + b.w/2) + "%";
+    p.style.top = (b.y + b.h/2) + "%";
+    els.pins.appendChild(p);
+  });
+}
+
+function findDet(id){
+  if (!state.ds) return null;
+  for (var i = 0; i < state.ds.detections.length; i++) if (state.ds.detections[i].id === id) return state.ds.detections[i];
+  return null;
+}
+
+function renderHighlight(pulse){
+  var d = findDet(state.activeId);
+  if (!d){ els.hl.style.display = "none"; return; }
+  var b = pctBox(d);
+  els.hl.style.display = "block";
+  els.hl.style.left = b.x + "%"; els.hl.style.top = b.y + "%";
+  els.hl.style.width = b.w + "%"; els.hl.style.height = b.h + "%";
+  els.hl.classList.toggle("below", b.y < 12);
+  els.hlLabel.textContent = kindName(d) + (d.confidence != null ? " " + Math.round(d.confidence*100) + "%" : "");
+  if (pulse){ els.hl.classList.remove("pulse"); void els.hl.offsetWidth; els.hl.classList.add("pulse"); }
+}
+
+function renderFindings(){
+  var card = els.findingsCard;
+  if (!state.ds){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  var box = els.findings;
+  box.innerHTML = "";
+  var dets = state.ds.detections;
+  if (!dets.length){
+    box.innerHTML = '<div class="empty">Nothing was found in this photo. If the camera checks above show errors, that is a server problem, not an empty trailer.</div>';
+    return;
+  }
+  var counters = {};
+  dets.forEach(function(d){
+    counters[d.kind] = (counters[d.kind] || 0) + 1;
+    var base = kindName(d);
+    var name = base;
+    if (d.source === "sam" && dets.filter(function(x){ return x.kind === d.kind; }).length > 1 && d.kind === "cargo"){
+      name = base + " " + counters[d.kind];
+    }
+    var sub = d.source === "user" ? "Added by you"
+      : (d.bonus_only ? "Bonus signal only, never counted"
+      : (d.prompt ? "Found looking for \u201c" + d.prompt + "\u201d" : "Found by the camera"));
+    var row = document.createElement("div");
+    row.className = "row" + (d.id === state.activeId ? " active" : "");
+    var dot = document.createElement("span"); dot.className = "dot"; dot.style.background = KIND_COLORS[d.kind] || "#fff";
+    var main = document.createElement("div"); main.className = "rowMain";
+    var nm = document.createElement("div"); nm.className = "rowName"; nm.textContent = name;
+    var sb = document.createElement("div"); sb.className = "rowSub"; sb.textContent = sub;
+    main.appendChild(nm); main.appendChild(sb);
+    row.appendChild(dot); row.appendChild(main);
+    if (d.confidence != null){
+      var c = document.createElement("div"); c.className = "conf";
+      c.innerHTML = Math.round(d.confidence*100) + "%<small>CONF</small>";
+      row.appendChild(c);
+    }
+    var rm = document.createElement("button");
+    rm.type = "button"; rm.className = "rm"; rm.textContent = "\u2715";
+    rm.setAttribute("aria-label", "Remove this finding");
+    rm.addEventListener("click", function(ev){ ev.stopPropagation(); removeDet(d.id); });
+    row.appendChild(rm);
+    row.addEventListener("click", function(){
+      state.activeId = (state.activeId === d.id) ? null : d.id;
+      renderFindings(); renderPins(); renderHighlight(true);
+    });
+    box.appendChild(row);
+  });
+}
+
+function chipClass(status){
+  var s = String(status || "").toUpperCase();
+  if (s.indexOf("PASS") === 0) return "pass";
+  if (s.indexOf("CHECK") === 0) return "check";
+  return "tell";
+}
+
+function renderVerdicts(verdicts){
+  var card = els.verdictCard;
+  if (!state.ds){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  var box = els.verdicts;
+  box.innerHTML = "";
+  if (!verdicts || !verdicts.length){
+    var hint = (state.inputs && state.inputs.load_length_ft != null)
+      ? "Verdicts are not available for this run yet. See the notes above for why."
+      : "Enter the load length in the form above and analyze again to get the 49 CFR 393 verdicts for this load.";
+    box.innerHTML = '<div class="empty">' + esc(hint) + '</div>';
+    return;
+  }
+  verdicts.forEach(function(v){
+    var div = document.createElement("div");
+    div.className = "verdict";
+    var head = document.createElement("div"); head.className = "vhead";
+    var nm = document.createElement("div"); nm.className = "vname"; nm.textContent = v.check || "Check";
+    var chip = document.createElement("span"); chip.className = "chip " + chipClass(v.status); chip.textContent = v.status || "";
+    head.appendChild(nm); head.appendChild(chip);
+    div.appendChild(head);
+    if (v.citation){
+      var cite = document.createElement("div"); cite.className = "vcite"; cite.textContent = v.citation;
+      div.appendChild(cite);
+    }
+    if (v.finding){
+      var f = document.createElement("div"); f.className = "vfind"; f.textContent = v.finding;
+      div.appendChild(f);
+    }
+    if (v.fix && chipClass(v.status) !== "pass"){
+      var fx = document.createElement("div"); fx.className = "vfix";
+      fx.innerHTML = "<b>Minimum fix:</b> ";
+      fx.appendChild(document.createTextNode(v.fix));
+      div.appendChild(fx);
+    }
+    box.appendChild(div);
+  });
+}
+
+function fmtVal(m){
+  if (m.value == null) return m.status === "could_not_measure" ? "could not measure" : "\u2014";
+  if (typeof m.value === "number") return m.value + (m.unit ? " " + m.unit : "");
+  if (typeof m.value === "object"){
+    var parts = [];
+    for (var k in m.value){
+      if (Object.prototype.hasOwnProperty.call(m.value, k)) parts.push(k.replace(/_/g," ") + ": " + m.value[k]);
+    }
+    return parts.join(", ");
+  }
+  return String(m.value);
+}
+
+function renderMeasurements(){
+  var card = els.measureCard;
+  if (!state.measurements){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  var box = els.measurements;
+  box.innerHTML = "";
+  var cal = state.measurements.calibration || {};
+  var calRow = document.createElement("div"); calRow.className = "mrow";
+  calRow.innerHTML = '<div class="mname">Calibration</div><div class="mval">' +
+    (cal.status === "calibrated" ? esc(cal.pixels_per_inch) + " px per inch" : "could not calibrate") + '</div>';
+  box.appendChild(calRow);
+  (state.measurements.measurements || []).forEach(function(m){
+    var row = document.createElement("div"); row.className = "mrow";
+    var left = document.createElement("div"); left.className = "mname";
+    left.textContent = m.name.replace(/_/g, " ");
+    if (m.reason){
+      var rs = document.createElement("span"); rs.className = "mreason"; rs.textContent = m.reason;
+      left.appendChild(rs);
+    }
+    var right = document.createElement("div"); right.className = "mval"; right.textContent = fmtVal(m);
+    row.appendChild(left); row.appendChild(right);
+    box.appendChild(row);
+  });
+}
+
+/* ---------- tap-to-correct + instant recheck ---------- */
+function setAddMode(on){
+  state.addMode = on;
+  els.photoWrap.classList.toggle("armed", on);
+  els.addBtn.classList.toggle("armed", on);
+  els.addBtn.textContent = on ? "Tap the photo where the tie-down is\u2026" : "+ Add a missed tie-down";
+  els.modeNote.textContent = on ? "Add mode is on. One tap drops the tie-down, then the verdicts recheck." : "";
+}
+els.addBtn.addEventListener("click", function(){ if (state.ds) setAddMode(!state.addMode); });
+
+els.photoWrap.addEventListener("click", function(ev){
+  if (!state.addMode || !state.ds) return;
+  var rect = els.photo.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return;
+  var fx = (ev.clientX - rect.left) / rect.width;
+  var fy = (ev.clientY - rect.top) / rect.height;
+  if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return;
+  var W = state.ds.image_width, H = state.ds.image_height;
+  var cx = fx * W, cy = fy * H;
+  var hw = 0.025 * W, hh = 0.05 * H;
+  var bbox = [Math.max(0, cx-hw), Math.max(0, cy-hh), Math.min(W, cx+hw), Math.min(H, cy+hh)];
+  state.userSeq += 1;
+  var det = {
+    id: "user-" + Date.now() + "-" + state.userSeq,
+    kind: "tiedown_closeup", bbox: bbox, confidence: null,
+    source: "user", user_corrected: true, prompt: null,
+    polygon: [], mask_rle: null, bonus_only: false, label: "tie-down"
+  };
+  state.ds.detections.push(det);
+  state.activeId = det.id;
+  setAddMode(false);
+  els.modeNote.textContent = "Tie-down added. Verdicts are rechecking\u2026";
+  renderAll();
+  recheck();
+});
+
+function removeDet(id){
+  if (!state.ds) return;
+  state.ds.detections = state.ds.detections.filter(function(d){ return d.id !== id; });
+  if (state.activeId === id) state.activeId = null;
+  els.modeNote.textContent = "Finding removed. Verdicts are rechecking\u2026";
+  renderAll();
+  recheck();
+}
+
+function recheck(){
+  if (!state.ds || state.rechecking) return;
+  if (!state.inputs || state.inputs.load_length_ft == null){
+    els.modeNote.textContent = "Saved. Add a load length and re-analyze to get rule verdicts for the corrected findings.";
+    return;
+  }
+  state.rechecking = true;
+  fetch("/verdicts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ detections: state.ds, measurements: state.measurements, inputs: state.inputs })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      state.rechecking = false;
+      if (j.error){ els.modeNote.textContent = "Recheck failed: " + j.error; return; }
+      state._verdicts = j.verdicts || null;
+      if (j.measurements) state.measurements = j.measurements;
+      renderVerdicts(state._verdicts);
+      renderMeasurements();
+      var extra = (j.warnings && j.warnings.length) ? " " + j.warnings[0] : "";
+      els.recheckNote.textContent = "Rechecked from your corrections in " + (j.latency_s != null ? j.latency_s + "s" : "an instant") + ", no new photo read." + extra;
+      els.modeNote.textContent = "Verdicts updated from your corrections.";
+    })
+    .catch(function(err){
+      state.rechecking = false;
+      els.modeNote.textContent = "Recheck could not reach the server (" + err.message + "). Your corrections are still on this page.";
+    });
+}
+
+/* applyAnalysis stores verdicts separately so renderAll can reuse them */
+var _apply = applyAnalysis;
+applyAnalysis = function(j){
+  state._verdicts = j.verdicts || null;
+  _apply(j);
+};
+</script>
+</body>
+</html>

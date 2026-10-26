@@ -8,10 +8,12 @@ custom.meta-model-api and files/sam_proof.py):
   dimension first (the helper's behaviour; SAM box coordinates come
   back in that resized space).
 - metadata: include_confidence=true, mask_encoding=one_bit.
-- Credentials come from the registered connector via
-  dynamic_credentials (an hsurr surrogate Muse swaps for the real
-  key on the way to api.meta.ai). The key is never read, printed, or
-  stored here.
+- Credentials: if the META_API_KEY environment variable is set (the
+  hosted/Modal deployment supplies it via a secret), it is sent as a
+  Bearer header. Otherwise credentials come from the registered
+  connector via dynamic_credentials (an hsurr surrogate Muse swaps
+  for the real key on the way to api.meta.ai). The key is never
+  printed or stored here.
 
 Reliability (matrix finding): 1 of 31 matrix calls timed out and
 succeeded on retry. So every call retries with backoff, max 3
@@ -25,6 +27,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -34,7 +37,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, "/opt/muse/skills/custom-connector-setup/bin")
-from dynamic_credentials import add_surrogate_to_request  # noqa: E402
+try:
+    from dynamic_credentials import add_surrogate_to_request  # noqa: E402
+except Exception:  # hosted deployment: no connector present; META_API_KEY is used
+    add_surrogate_to_request = None  # noqa: E402
 
 BASE_URL = "https://api.meta.ai/v1"
 PROVIDER = "custom.meta-model-api"
@@ -114,7 +120,16 @@ def _post(payload: dict, timeout: float) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    add_surrogate_to_request(req, PROVIDER, allowed_hosts=HOSTS)
+    api_key = os.environ.get("META_API_KEY")
+    if api_key:
+        req.add_header("Authorization", "Bearer " + api_key)
+    elif add_surrogate_to_request is not None:
+        add_surrogate_to_request(req, PROVIDER, allowed_hosts=HOSTS)
+    else:
+        raise RuntimeError(
+            "no Meta Model API credential available: set META_API_KEY "
+            "or run under the Muse connector"
+        )
     opener = urllib.request.build_opener(_NoRedirect())
     with opener.open(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8", errors="replace"))

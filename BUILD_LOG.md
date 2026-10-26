@@ -3,6 +3,142 @@
 Newest first. Every entry is work done inside the hackathon window,
 Oct 26 - Nov 4, 2026.
 
+## Oct 26, 2026 - Day 3: deterministic rules engine + dual-model cross-check
+
+(Pulled forward from the Oct 29 plan slot.)
+
+Built:
+- `loadmaster/rules.py` - the deterministic 49 CFR 393 rules
+  engine. No LLM calls, no randomness, no network: the same
+  detections + measurements + user inputs always produce the same
+  verdicts. Inputs: Day 1 detection sets (one per photo), the Day 2
+  measurements, and the user's declared inputs (load length, load
+  type in the three spec categories, optional weight, optional
+  tie-down WLL ratings as one uniform number or a per-tie-down
+  list). Output: one verdict object per applicable check -
+  check_id, CFR citation, status (PASS / CHECK_THIS /
+  COULD_NOT_TELL), plain-words finding, evidence (detection ids +
+  measurement names), minimum fix for every CHECK_THIS,
+  confidence basis, and a risk_rank.
+- `loadmaster/crosscheck.py` - the Tier 2.5 dual-model
+  cross-check. Muse Spark reads a photo INDEPENDENTLY (it is never
+  told what SAM found) and answers a small structured question set
+  per photo role: close-up (how many distinct tie-downs; any strap
+  over a sharp edge without a protector), rear (tail lights
+  visible? plate visible? tarp covering?), side (rear-heavy?
+  blocked at the front?). Answers are parsed into plain fields;
+  the raw answer is kept on the result for audit. Same Responses
+  endpoint and connector credential path as the SAM client.
+- `loadmaster/pipeline.py` - optional Day 3 stage: `--rules` with
+  the user inputs on the command line writes
+  `<photo>_verdicts.json`; `--crosscheck` runs Spark's independent
+  read of the photo first and feeds its view into the verdicts.
+
+Engine design choices, recorded so they are auditable:
+- Not-applicable handling: a check that does not apply to the load
+  at all (heavy equipment on a general load, tarp on a non-loose
+  load, 393.130 when the machine is under its 10,000 lb trigger)
+  produces NO verdict object; it is listed with its reason under
+  "not_applicable". COULD_NOT_TELL is reserved for checks that
+  apply but cannot be decided from the evidence - marking a
+  not-applicable check COULD_NOT_TELL would fake an evidence gap.
+- Tie-down count basis: anchor close-up detections plus user-added
+  (tap-to-correct) tie-down marks ONLY. Full-frame strap detections
+  are bonus_only and never count (matrix finding). If no close-up
+  set and no user marks were supplied, the check is COULD_NOT_TELL
+  with the reason, even though the required number is known.
+- 393.110 at <=5 ft branches on weight (1 tie-down at <=1,100 lb,
+  2 above). With the weight un-supplied the verdict follows the
+  observed count honestly: 2+ observed passes either way, 1
+  observed is COULD_NOT_TELL with the assumption path stated, 0
+  observed fails both branches. Above 5 ft the required count
+  never depends on weight, so no weight is needed there.
+- Aggregate WLL (393.106/393.108) is computable only from
+  user-supplied weight AND ratings; a direct tie-down counts half
+  its rating, an over-the-top tie-down counts in full. The finding
+  says in so many words that a photo cannot verify ratings or
+  weight.
+- Forward blocking is derived deterministically in the engine
+  from the Day 2 calibration (bed front edge, pixels-per-inch)
+  and the frontmost cargo mask edge: within 6 in of the bed front
+  passes (threshold constant in rules.py), a larger open gap is
+  CHECK_THIS. Without calibration it degrades to COULD_NOT_TELL.
+- Overhang and lights/plate are ONE verdict whose finding always
+  separates the two halves: overhang from the Day 2 measurement,
+  lights/plate only from the cross-check's rear read (SAM has no
+  such signal). The combined status is the worse of the two
+  halves, honestly.
+- Weight placement can NEVER pass: it is a visual estimate only.
+  Bulk behind the axle by more than the estimate's own
+  uncertainty is CHECK_THIS; anything else is COULD_NOT_TELL with
+  the estimate stated in the finding.
+- Risk ranking (1 = fix first): forward blocking, tie-down
+  count, heavy equipment, overhang/lights-plate, weight
+  placement, tarp, edge protection, aggregate WLL.
+- Cross-check application: Spark's view is attached to a verdict
+  as a cross_check record {spark_view, sam_view, agreement}. A
+  disagreement over something Spark can see demotes a PASS to
+  CHECK_THIS with both views in the finding. Nothing is ever
+  upgraded: an agreeing Spark cannot turn a failure into a pass.
+
+Cross-check live smoke (2 Spark image calls, Oct 26; image input
+works on the Responses endpoint with the same data-URL shape as
+SAM - the Day 0 Spark proof was text-only, this is the first live
+image read):
+- Ratchet-strap anchor close-up: HTTP 200, one attempt, 12.1 s.
+  Raw answer: {"tiedown_count": 2, "straps_over_sharp_edge_
+  without_protection": "unclear"}. Note the honest disagreement:
+  SAM's close-up segmentation found 1 tie-down in this photo
+  (0.797, Day 1); Spark counted 2. Neither is ground truth - this
+  is exactly the disagreement the cross-check exists to surface.
+- Lowboy rear view: HTTP 200, one attempt, 10.4 s. Raw answer:
+  {"tail_lights_visible": true, "license_plate_visible": false,
+  "tarp_covering_load": "no"}. Spark reports the plate not
+  visible on this rear shot of a semi rig.
+- A third live read ran inside the wired pipeline example below:
+  the same close-up again counted 2 tie-downs, and the edge
+  question came back "yes" this time (it was "unclear" in the
+  smoke call) - real run-to-run variance in the vision read,
+  recorded here rather than smoothed over. The engine treats a
+  "yes" as CHECK_THIS evidence and an "unclear" as no evidence,
+  so variance moves a verdict only toward caution, never toward
+  a pass.
+
+Tests: 89 passed (pytest, foreground run) - the 36 Day 1+2 tests
+plus 53 new: the 393.110 required-count table (boundary cases at
+5 ft / 1,100 lb / 10 ft fractions), every check's pass, fail, and
+degradation branches, bonus-only straps never counting, user
+marks counting (and a user cargo mark not counting), direct vs
+indirect WLL arithmetic, the not-applicable paths, the
+weight-placement never-pass rule, cross-check parsing
+(fences/prose/loose values/garbage), stubbed-transport
+ask_spark (payload shape, independence of the prompt, retry,
+unparseable answer = error, never an empty view), and the
+disagreement demotion (PASS -> CHECK_THIS) plus the
+never-upgrade rule.
+
+Proof runs (live pipeline, outputs in examples/output/):
+- Firewood side view, assumed 8 ft bed, 8 ft load, `--rules`:
+  0 PASS / 2 CHECK_THIS / 4 COULD_NOT_TELL, heavy equipment and
+  tarp not-applicable. Forward blocking CHECK_THIS (load front
+  8.6 in behind the bed front - computed against SAM's bed mask,
+  which on this photo overreaches into the pickup bed; the Day 2
+  caveat stands and tap-to-correct is the remedy). Tie-down
+  count COULD_NOT_TELL (no close-ups supplied; the full-frame
+  strap prompt was empty, as the matrix predicts). Weight
+  placement CHECK_THIS on the Day 2 estimate (bulk 22.7 in
+  behind the axle vs +/-19.7 in uncertainty). Overhang half
+  passes at 0 in inside a COULD_NOT_TELL whose lights/plate half
+  is honestly unchecked. Aggregate WLL COULD_NOT_TELL (no
+  weight or ratings supplied).
+- Ratchet-strap close-up, 6 ft load, `--rules --crosscheck`:
+  tie-down count CHECK_THIS - SAM counted 1 of the 2 required,
+  and the attached cross_check record shows Spark's independent
+  count of 2 with agreement=false (both views preserved).
+  Edge protection CHECK_THIS from Spark's "yes" on the
+  sharp-edge question. Everything else COULD_NOT_TELL or
+  not-applicable, honestly.
+
 ## Oct 26, 2026 - Day 2: calibrated measurement layer + overlay fix
 
 (Pulled forward from the Oct 28 plan slot.)

@@ -8,7 +8,7 @@
   "status": "calibrated",
   "bed_length_ft": 8.0,
   "pixels_per_inch": 31.6458,
-  "bed_detection_id": "det-0001-372794",
+  "bed_detection_id": "det-0001-c585f8",
   "bed_extent_px": 3038.0,
   "bed_min_x": 226.0,
   "bed_max_x": 3264.0,
@@ -24,10 +24,10 @@
    "unit": "in",
    "method": "rearmost cargo extent (mask bitmap tight edge, else bbox) minus the bed rear edge, scaled by the calibration; rear = image-right end of the bed extent",
    "source_detection_ids": [
-    "det-0002-e6e8bf",
-    "det-0001-372794"
+    "det-0002-1f36da",
+    "det-0001-c585f8"
    ],
-   "confidence_basis": "cargo det-0002-e6e8bf conf 0.66",
+   "confidence_basis": "cargo det-0002-1f36da conf 0.66",
    "reason": null,
    "uncertainty": null,
    "flags": []
@@ -44,16 +44,16 @@
    "unit": "in",
    "method": "bitmap-weighted centroid of all cargo masks along the bed axis vs the axle estimate position (midpoint of axle centres when several), scaled by the calibration; positive offset = centroid behind the axle",
    "source_detection_ids": [
-    "det-0002-e6e8bf",
-    "det-0003-78ab04",
-    "det-0004-62a11c",
-    "det-0005-dbd23c",
-    "det-0006-15ab34",
-    "det-0007-e5b454",
-    "det-0008-4b5909",
-    "axle-0009-7b52f5"
+    "det-0002-1f36da",
+    "det-0003-2020db",
+    "det-0004-bd80c9",
+    "det-0005-c7d10d",
+    "det-0006-b88484",
+    "det-0007-f76140",
+    "det-0008-7f9697",
+    "axle-0009-3c56bf"
    ],
-   "confidence_basis": "cargo det-0002-e6e8bf conf 0.66; cargo det-0003-78ab04 conf 0.70; cargo det-0004-62a11c conf 0.69; cargo det-0005-dbd23c conf 0.69; cargo det-0006-15ab34 conf 0.60; cargo det-0007-e5b454 conf 0.61; cargo det-0008-4b5909 conf 0.62; axle_estimate axle-0009-7b52f5 conf 0.92",
+   "confidence_basis": "cargo det-0002-1f36da conf 0.66; cargo det-0003-2020db conf 0.70; cargo det-0004-bd80c9 conf 0.69; cargo det-0005-c7d10d conf 0.69; cargo det-0006-b88484 conf 0.59; cargo det-0007-f76140 conf 0.61; cargo det-0008-7f9697 conf 0.62; axle_estimate axle-0009-3c56bf conf 0.92",
    "reason": null,
    "uncertainty": {
     "plus_minus_in": 19.7,

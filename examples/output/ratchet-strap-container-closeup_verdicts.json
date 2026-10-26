@@ -1,0 +1,120 @@
+{
+ "schema": "loadmaster.verdicts/1",
+ "inputs": {
+  "load_length_ft": 6.0,
+  "load_type": "general",
+  "weight_lb": null,
+  "tiedown_wll_lb": null,
+  "tiedown_attachment": "indirect"
+ },
+ "tiedown_count_basis": {
+  "count": 1,
+  "basis_present": true,
+  "detection_ids": [
+   "det-0001-814c24"
+  ],
+  "detail": "1 counted from close-up detections and user marks (0 user-added); full-frame bonus-only strap signals are never counted"
+ },
+ "verdicts": [
+  {
+   "check_id": "forward_blocking",
+   "cfr_citation": "49 CFR 393.104 / 393.110 (forward movement blocking)",
+   "status": "COULD_NOT_TELL",
+   "finding": "Forward blocking cannot be judged: there is no calibrated measurement of the load against the bed (no measurement run was supplied). Run the measurement stage with the trailer bed length to enable this check.",
+   "evidence": {
+    "detection_ids": [],
+    "measurement_names": []
+   },
+   "minimum_fix": null,
+   "confidence_basis": "no calibration: no measurement run was supplied",
+   "risk_rank": 1
+  },
+  {
+   "check_id": "tiedown_count",
+   "cfr_citation": "49 CFR 393.110",
+   "status": "CHECK_THIS",
+   "finding": "Only 1 tie-down(s) counted; 393.110 requires 2 for a 6 ft load. Short by 1.",
+   "evidence": {
+    "detection_ids": [
+     "det-0001-814c24"
+    ],
+    "measurement_names": []
+   },
+   "minimum_fix": "Add at least 1 more tie-down(s), spaced along the load, before rolling.",
+   "confidence_basis": "1 counted from close-up detections and user marks (0 user-added); full-frame bonus-only strap signals are never counted",
+   "risk_rank": 2,
+   "cross_check": {
+    "spark_view": "Spark's independent read of the close-up counted 2 tie-down(s)",
+    "sam_view": "SAM close-up detections + user marks counted 1 tie-down(s)",
+    "agreement": false
+   }
+  },
+  {
+   "check_id": "overhang_lights_plate",
+   "cfr_citation": "49 CFR Part 393, Subpart I (overhang; lights and plate visibility)",
+   "status": "COULD_NOT_TELL",
+   "finding": "Overhang: not measured (no measurement run supplied). Lights and plate: not checked (needs the rear photo read by the cross-check; segmentation cannot judge whether lights or the plate are obscured).",
+   "evidence": {
+    "detection_ids": [],
+    "measurement_names": []
+   },
+   "minimum_fix": null,
+   "confidence_basis": "no measurement and no rear cross-check supplied",
+   "risk_rank": 4
+  },
+  {
+   "check_id": "weight_placement",
+   "cfr_citation": "49 CFR 393.100 (load placement; visual estimate only here)",
+   "status": "COULD_NOT_TELL",
+   "finding": "Weight placement cannot be called: no centroid measurement was supplied. Placement is a visual estimate only in any case - a photo shows where the bulk sits, never how heavy it is.",
+   "evidence": {
+    "detection_ids": [],
+    "measurement_names": []
+   },
+   "minimum_fix": null,
+   "confidence_basis": "visual estimate only; no usable centroid measurement",
+   "risk_rank": 5
+  },
+  {
+   "check_id": "edge_protection",
+   "cfr_citation": "49 CFR 393.104 (edge protection)",
+   "status": "CHECK_THIS",
+   "finding": "The independent photo read of the anchor close-up reports a strap or chain crossing a sharp edge with no protector visible. An unprotected edge can cut a strap through under load.",
+   "evidence": {
+    "detection_ids": [],
+    "measurement_names": []
+   },
+   "minimum_fix": null,
+   "confidence_basis": "dual-model cross-check (Muse Spark, close-up read); SAM segmentation does not judge edges",
+   "risk_rank": 7
+  },
+  {
+   "check_id": "aggregate_wll",
+   "cfr_citation": "49 CFR 393.106 / 393.108",
+   "status": "COULD_NOT_TELL",
+   "finding": "Tie-down strength cannot be checked from the photo: a photo cannot verify working load limit ratings or load weight, and this check needs both numbers. Missing: no tie-down working load limit ratings were supplied; no load weight was supplied. Supply the load weight and each tie-down's rating and this check runs on those numbers.",
+   "evidence": {
+    "detection_ids": [],
+    "measurement_names": []
+   },
+   "minimum_fix": null,
+   "confidence_basis": "not computable: no tie-down working load limit ratings were supplied; no load weight was supplied",
+   "risk_rank": 8
+  }
+ ],
+ "not_applicable": [
+  {
+   "check_id": "heavy_equipment",
+   "reason": "not a heavy wheeled/tracked equipment load (load type: general); 393.130 does not apply"
+  },
+  {
+   "check_id": "tarp_coverage",
+   "reason": "load type is general, not loose material; the tarp check only applies to loose loads"
+  }
+ ],
+ "summary": {
+  "PASS": 0,
+  "CHECK_THIS": 2,
+  "COULD_NOT_TELL": 4
+ }
+}

@@ -11,7 +11,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 6.49,
+   "latency_s": 5.3,
    "objects": 1,
    "error": null
   },
@@ -21,7 +21,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 2.77,
+   "latency_s": 4.31,
    "objects": 1,
    "error": null
   },
@@ -31,7 +31,7 @@
    "bonus_only": false,
    "status": "ok",
    "attempts": 1,
-   "latency_s": 5.36,
+   "latency_s": 4.43,
    "objects": 7,
    "error": null
   },
@@ -41,7 +41,7 @@
    "bonus_only": true,
    "status": "empty",
    "attempts": 1,
-   "latency_s": 2.38,
+   "latency_s": 2.07,
    "objects": 0,
    "error": null
   }
@@ -57,10 +57,23 @@
   "tarp_coverage": "not_applicable",
   "tiedown_coverage_gaps": "could_not_measure"
  },
+ "verdicts_summary": {
+  "PASS": 0,
+  "CHECK_THIS": 2,
+  "COULD_NOT_TELL": 4
+ },
+ "rules_inputs": {
+  "load_length_ft": 8.0,
+  "load_type": "general",
+  "weight_lb": null,
+  "tiedown_wll_lb": null,
+  "tiedown_attachment": "indirect"
+ },
  "outputs": {
   "detections": "examples/output/utility-trailer-firewood-logs_detections.json",
   "overlay": "examples/output/utility-trailer-firewood-logs_overlay.png",
   "measurements": "examples/output/utility-trailer-firewood-logs_measurements.json",
+  "verdicts": "examples/output/utility-trailer-firewood-logs_verdicts.json",
   "run": "examples/output/utility-trailer-firewood-logs_run.json"
  }
 }
