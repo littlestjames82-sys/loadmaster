@@ -477,3 +477,21 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
 - Gallery photos are the openly licensed development set, labeled
   as such on the page; the scored test set remains Ryan's own
   staged loads.
+
+## Cross-check wired into the hosted app (Oct 26, 2026, evening)
+
+- Honest gap found and closed: the dual-model cross-check shipped
+  in the CLI on Day 3 but the hosted app never ran it, while the
+  README and submission draft described it as product behavior.
+  Now /analyze runs Muse Spark's independent read on every photo
+  (the pipeline runs it whenever asked, not only when the pipeline
+  itself computes verdicts), the records feed evaluate_rules, and
+  the app returns them. The UI gained a "Second opinion" card
+  showing Spark's own answers in plain words.
+- Proof (strap close-up): SAM counted 1 tie-down, Spark counted 2;
+  edge protection moved from COULD NOT TELL to CHECK THIS purely
+  on Spark's close-up read, with the dual-model basis recorded on
+  the verdict. Gallery captures regenerated so the samples match
+  the live behavior, second-opinion line included.
+- Modal function now keeps a warm container for 5 minutes after a
+  request (scaledown_window), cutting judge-facing cold starts.

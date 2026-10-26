@@ -43,6 +43,7 @@ image = (
     image=image,
     secrets=[modal.Secret.from_name("meta-model-api")],
     timeout=300,  # a full analysis runs several SAM calls in parallel
+    scaledown_window=300,  # keep a warm container 5 min so judges do not eat a cold start
 )
 @modal.asgi_app()
 def fastapi_app():

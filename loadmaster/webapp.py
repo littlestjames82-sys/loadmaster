@@ -136,7 +136,7 @@ def _normalize_verdicts(raw) -> list[dict] | None:
     return None
 
 
-def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
+def _call_rules(fn, ds_dict, ds_obj, measurements, inputs, crosscheck=None):
     """Call the rules entry point with whatever shape it accepts.
 
     The Day 3 engine's evaluate_rules takes a LIST of detection sets
@@ -151,6 +151,7 @@ def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
         "measurements": measurements,
         "inputs": inputs,
         "user_inputs": inputs,
+        "crosscheck": crosscheck,
         "load_length_ft": inputs.get("load_length_ft"),
         "load_type": inputs.get("load_type"),
         "weight_lb": inputs.get("weight_lb"),
@@ -195,7 +196,7 @@ def _call_rules(fn, ds_dict, ds_obj, measurements, inputs):
     raise RuntimeError("could not call the rules entry point")
 
 
-def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict):
+def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict, crosscheck=None):
     """Return (verdicts | None, warnings, raw_report | None). Never raises."""
     warnings: list[str] = []
     try:
@@ -222,7 +223,7 @@ def compute_verdicts(ds_dict: dict, measurements: dict | None, inputs: dict):
     except Exception:
         ds_obj = None
     try:
-        raw = _call_rules(fn, ds_dict, ds_obj, measurements, _rules_inputs(inputs))
+        raw = _call_rules(fn, ds_dict, ds_obj, measurements, _rules_inputs(inputs), crosscheck=crosscheck)
     except Exception as exc:
         return None, [
             f"verdicts not computed: the rules engine call failed "
@@ -302,6 +303,35 @@ def load_gallery_entries() -> list[dict]:
     return entries
 
 
+_GALLERY_CROSS_LABELS = {
+    "load_looks_rear_heavy": "Load looks rear-heavy",
+    "front_blocked": "Front of the load is blocked",
+    "tail_lights_visible": "Tail lights visible",
+    "license_plate_visible": "License plate visible",
+    "tarp_covering_load": "Tarp covering the load",
+    "tiedown_count": "Tie-downs it counted",
+    "straps_over_sharp_edge_without_protection": "Strap over a sharp edge with no protection",
+}
+
+
+def _gallery_cross_line(entry: dict, esc) -> str:
+    records = entry.get("crosscheck") or []
+    bits = []
+    for r in records:
+        if r.get("status") != "ok":
+            continue
+        for k, v in (r.get("view") or {}).items():
+            label = _GALLERY_CROSS_LABELS.get(k, k.replace("_", " "))
+            val = "Yes" if v is True or v == "yes" else "No" if v is False or v == "no" else "Could not tell" if v in (None, "unclear") else str(v)
+            bits.append(f"{label}: {val}")
+    if not bits:
+        return ""
+    return (
+        "<div class=\"credit\" style=\"margin-top:8px;\">Second opinion "
+        f"(Muse Spark, independent read): {esc(' · '.join(bits))}</div>"
+    )
+
+
 def _gallery_html(entries: list[dict]) -> str:
     from .report import check_label
 
@@ -363,6 +393,7 @@ def _gallery_html(entries: list[dict]) -> str:
                 else ""
             )
             + f"<div class=\"chips\">{chips}</div>"
+            + _gallery_cross_line(e, esc)
             + (f"<div class=\"headline\">{esc(str(rep.get('headline') or ''))}</div>" if rep.get("headline") else "")
             + (f"<div class=\"body\">{esc(str(rep.get('body') or ''))}</div>" if rep.get("body") else "")
             + (f"<table><tr><th>Check</th><th>Verdict</th><th>Finding</th><th>Minimum fix</th></tr>{rows}</table>" if rows else "")
@@ -409,6 +440,7 @@ def analyze(
             ds, run_record = run_pipeline(
                 photo_path, trailer_type, load_type, photo_role,
                 tmp_dir / "out", bed_length_ft=bed_length_ft,
+                crosscheck=True,
             )
         except Exception as exc:
             return JSONResponse(
@@ -444,9 +476,10 @@ def analyze(
         verdicts = None
         rules_report = None
         report = None
+        cross_records = run_record.get("crosscheck")
         if load_length_ft is not None:
             verdicts, v_warnings, rules_report = compute_verdicts(
-                detections, measurements, inputs
+                detections, measurements, inputs, crosscheck=cross_records
             )
             warnings.extend(v_warnings)
             if verdicts:
@@ -462,6 +495,7 @@ def analyze(
             "measurements": measurements,
             "verdicts": verdicts,
             "report": report,
+            "crosscheck": cross_records,
             "rules": rules_report,
             "overlay_png_base64": overlay_b64,
             "overlay_mime": "image/jpeg",

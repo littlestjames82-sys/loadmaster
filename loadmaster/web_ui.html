@@ -235,6 +235,12 @@
     </div>
   </section>
 
+  <section class="card" id="crossCard" style="display:none;">
+    <h2>Second opinion</h2>
+    <p class="sub">Muse Spark read this photo on its own, without seeing the camera findings. Where its view fights a verdict, the verdict drops to CHECK THIS. It can never raise one.</p>
+    <div id="crossBody"></div>
+  </section>
+
   <section class="card" id="verdictCard" style="display:none;">
     <h2>Rule verdicts</h2>
     <p class="sub">Deterministic checks against 49 CFR 393, from the findings and measurements. Correct a finding above and the verdicts recheck instantly, without re-reading the photo.</p>
@@ -272,7 +278,7 @@ var els = {};
 ["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
- "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard"
+ "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody"
 ].forEach(function(id){ els[id] = document.getElementById(id); });
 
 var state = {
@@ -653,6 +659,46 @@ function renderDelta(before, after){
   }
 }
 
+var CROSS_LABELS = {
+  load_looks_rear_heavy: "Load looks rear-heavy",
+  front_blocked: "Front of the load is blocked",
+  tail_lights_visible: "Tail lights visible",
+  license_plate_visible: "License plate visible",
+  tarp_covering_load: "Tarp covering the load",
+  tiedown_count: "Tie-downs it counted",
+  straps_over_sharp_edge_without_protection: "Strap over a sharp edge with no protection"
+};
+function crossVal(v){
+  if (v === true || v === "yes") return "Yes";
+  if (v === false || v === "no") return "No";
+  if (v === null || v === undefined || v === "unclear") return "Could not tell";
+  return String(v);
+}
+function renderCrosscheck(records){
+  var card = els.crossCard, box = els.crossBody;
+  box.innerHTML = "";
+  if (!records || !records.length){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  records.forEach(function(r){
+    if (r.status !== "ok"){
+      var d = document.createElement("div");
+      d.className = "mrow";
+      d.textContent = "Second opinion unavailable for this photo. The rule checks still ran on the camera findings.";
+      box.appendChild(d);
+      return;
+    }
+    Object.keys(r.view || {}).forEach(function(k){
+      var row = document.createElement("div"); row.className = "mrow";
+      var nm = document.createElement("div"); nm.className = "mname";
+      nm.textContent = CROSS_LABELS[k] || k.replace(/_/g, " ");
+      var val = document.createElement("div"); val.className = "mval";
+      val.textContent = crossVal(r.view[k]);
+      row.appendChild(nm); row.appendChild(val);
+      box.appendChild(row);
+    });
+  });
+}
+
 function renderVerdicts(verdicts){
   var card = els.verdictCard;
   if (!state.ds){ card.style.display = "none"; return; }
@@ -862,6 +908,7 @@ applyAnalysis = function(j){
   state._report = j.report || null;
   _apply(j);
   renderReport(state._report);
+  renderCrosscheck(j.crosscheck || null);
   els.deltaBox.style.display = "none";
 };
 </script>

@@ -187,20 +187,23 @@ def run_pipeline(
         run_record["measurements_summary"] = {
             m.name: m.status for m in report.measurements
         }
+    # Tier 2.5 cross-check: Muse Spark reads THIS photo
+    # independently. It runs whenever requested, whether or not the
+    # pipeline itself computes verdicts (the web app computes them
+    # from the run record). The raw record stays in the run record
+    # for audit either way.
+    cross_records: list[dict] = []
+    if crosscheck:
+        cc = ask_spark(photo, photo_role)
+        cross_records.append(cc.to_dict())
+        run_record["crosscheck"] = cross_records
+        if cc.status == "error":
+            ds.notes.append(
+                f"cross-check ERRORED for role {photo_role} ({cc.error}); "
+                "verdicts were computed without Spark's view"
+            )
     if rules_inputs is not None:
-        # Day 3 stage (optional): deterministic verdicts. The
-        # cross-check (Tier 2.5) reads THIS photo independently
-        # first; its raw record stays in the run record for audit.
-        cross_records: list[dict] = []
-        if crosscheck:
-            cc = ask_spark(photo, photo_role)
-            cross_records.append(cc.to_dict())
-            run_record["crosscheck"] = cross_records
-            if cc.status == "error":
-                ds.notes.append(
-                    f"cross-check ERRORED for role {photo_role} ({cc.error}); "
-                    "verdicts were computed without Spark's view"
-                )
+        # Day 3 stage (optional): deterministic verdicts.
         verdicts = evaluate_rules(
             [ds],
             report.to_dict() if report is not None else None,
