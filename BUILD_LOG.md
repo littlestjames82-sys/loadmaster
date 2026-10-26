@@ -567,3 +567,15 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   live POSTs (timeout 300 + scaledown 300; the later timeout bump
   and the concurrency decorator are removed) to bisect whether
   the hosting config is the culprit.
+- Resolution of the night's "hangs" (Oct 26, 2026): Modal's own
+  request logs (captured through the diagnostics workflow) show
+  every request completing server-side, worst case 62 s, most in
+  seconds. The lost responses were dying between Modal and this
+  development VM's egress proxy, not in the app. One genuine
+  transient appeared inside a single response: model_not_found
+  from the Meta API during the same evening window; a later run
+  cleared it. Verification method changed accordingly: a smoke
+  test now runs from the CI runner's clean network. Latest smoke:
+  HTTP 200 in 72.7 s with cross-check ok and a Spanish Spark
+  report ("Falta evidencia para evaluar la lena") on the live
+  app. The hosted secret key is healthy; no rotation needed.
