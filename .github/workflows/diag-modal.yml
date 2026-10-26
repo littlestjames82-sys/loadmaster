@@ -1,11 +1,14 @@
 name: Diagnose Modal app
 
 # Manual-only diagnostics: dumps the Modal app list and recent app
-# logs into the job output so a wedged deployment can be inspected
+# logs into a GitHub issue so a wedged deployment can be inspected
 # without local Modal CLI auth. Never runs on push.
 
 on:
   workflow_dispatch:
+
+permissions:
+  issues: write
 
 jobs:
   diag:
@@ -16,13 +19,33 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install modal
-      - name: App list
-        run: modal app list || true
+      - name: Capture Modal state
+        run: |
+          {
+            echo "=== modal app list ==="
+            modal app list || true
+            echo "=== modal app logs loadmaster (up to 150s) ==="
+            timeout 150 modal app logs loadmaster 2>&1 || true
+          } > diag-output.txt 2>&1
+          wc -c diag-output.txt
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-      - name: App logs (recent)
-        run: timeout 120 modal app logs loadmaster 2>&1 | tail -400 || true
+      - name: Post logs as an issue
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, urllib.request
+          text = open("diag-output.txt", encoding="utf-8", errors="replace").read()
+          body = "Automated Modal diagnostics capture.\n\n```\n" + text[-55000:] + "\n```"
+          payload = json.dumps({"title": "Modal diagnostics capture", "body": body}).encode()
+          req = urllib.request.Request(
+              "https://api.github.com/repos/littlestjames82-sys/loadmaster/issues",
+              data=payload, method="POST")
+          req.add_header("Authorization", "Bearer " + os.environ["GH_TOKEN"])
+          req.add_header("Accept", "application/vnd.github+json")
+          req.add_header("Content-Type", "application/json")
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              print("issue created:", json.loads(resp.read())["html_url"])
+          PYEOF
         env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
