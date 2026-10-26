@@ -195,7 +195,7 @@ def parse_answer(text: str, photo_role: str) -> dict:
 def ask_spark(
     image_path: Path,
     photo_role: str,
-    timeout: float = 180.0,
+    timeout: float = 75.0,
     max_attempts: int = 2,
     backoff_s: float = 2.0,
     _poster=None,

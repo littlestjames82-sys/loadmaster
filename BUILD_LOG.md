@@ -543,3 +543,12 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   dying. Local proof under the same slow conditions: full
   close-up run with cross-check and a Spanish Spark report in
   55.8 s.
+- Root cause of the two dead live runs found in the retry math:
+  each SAM call allowed a 240 s timeout x 3 attempts, so a sick
+  upstream that hangs connections instead of erroring could park
+  the parallel stage past 700 s, beyond any function timeout.
+  Bounds tightened everywhere: SAM 90 s x 2 attempts, cross-check
+  75 s x 2, report 45 s x 2. Worst case for a full analysis is
+  now roughly 280 s even if every call hangs to its limit, and a
+  call that still fails surfaces as an honest error status in
+  the results instead of a request that never answers.

@@ -138,8 +138,8 @@ def _post(payload: dict, timeout: float) -> dict:
 def segment(
     image_path: Path,
     prompt: str,
-    timeout: float = 240.0,
-    max_attempts: int = 3,
+    timeout: float = 90.0,
+    max_attempts: int = 2,
     backoff_s: float = 2.0,
     _prepared: tuple[str, int, int, int, int] | None = None,
 ) -> SamResult:
@@ -203,7 +203,7 @@ def run_prompts(
     image_path: Path,
     prompts: list[str],
     max_workers: int = 8,
-    timeout: float = 240.0,
+    timeout: float = 90.0,
 ) -> list[SamResult]:
     """Run one photo's whole prompt pack in PARALLEL (matrix latency
     finding: ~15-20 s per call in sequence is too slow serially).

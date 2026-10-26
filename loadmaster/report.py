@@ -237,7 +237,7 @@ def write_report(
     verdicts: list[dict] | None,
     inputs: dict | None = None,
     _poster=None,
-    timeout: float = 60.0,
+    timeout: float = 45.0,
     max_attempts: int = 2,
     lang: str = "en",
 ) -> dict:
