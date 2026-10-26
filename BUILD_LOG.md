@@ -552,3 +552,10 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   now roughly 280 s even if every call hangs to its limit, and a
   call that still fails surfaces as an honest error status in
   the results instead of a request that never answers.
+- Second root cause, in the hosting shape: the ASGI function ran
+  one input at a time per container, so a single wedged analysis
+  queue-blocked every later request behind it (three verification
+  probes in a row received zero bytes, each behind the previous
+  corpse, while /health stayed green). Fix: max_containers=3 and
+  @modal.concurrent(max_inputs=12), so one slow run can never
+  block the next judge.

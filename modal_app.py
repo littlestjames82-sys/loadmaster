@@ -44,7 +44,9 @@ image = (
     secrets=[modal.Secret.from_name("meta-model-api")],
     timeout=600,  # cold start + parallel SAM calls + two Spark calls; headroom beats a dead request
     scaledown_window=300,  # keep a warm container 5 min so judges do not eat a cold start
+    max_containers=3,
 )
+@modal.concurrent(max_inputs=12)  # one slow analysis must never queue-block the next judge
 @modal.asgi_app()
 def fastapi_app():
     if "/root" not in sys.path:
