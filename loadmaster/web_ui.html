@@ -987,7 +987,11 @@ function fillPrintCard(){
     + " &middot; Load: " + esc(inp.load_type || "not specified")
     + " &middot; Bed length: " + esc(inp.bed_length_ft != null ? inp.bed_length_ft + " ft" : "not supplied")
     + " &middot; Load length: " + esc(inp.load_length_ft != null ? inp.load_length_ft + " ft" : "not supplied")
-    + " &middot; Weight: " + esc(inp.weight_lb != null ? inp.weight_lb + " lb" : "not supplied") + "</div>"
+    + " &middot; Weight: " + esc(inp.weight_lb != null ? inp.weight_lb + " lb" : "not supplied")
+    + (state.photoSets && state.photoSets.length > 1
+        ? " &middot; Photos: " + state.photoSets.map(function(s){ return esc(ROLE_NAMES[s.role] || s.role); }).join(" + ")
+        : "")
+    + "</div>"
     + (rep.headline ? "<h2>" + esc(rep.headline) + "</h2><div>" + esc(rep.body || "") + "</div>" : "")
     + "<h2>Rule verdicts</h2>"
     + (rows

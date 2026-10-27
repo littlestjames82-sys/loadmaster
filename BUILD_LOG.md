@@ -625,3 +625,15 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
 - Submission draft refreshed to current facts (119 tests, photo
   sets, PWA install, cross-check evidence count, corrected
   workforce stat wording). Still a draft awaiting Ryan's approval.
+
+## Oct 26 (night) - Polish, round two
+
+- README: fixed a stale test count in the judges section (109 ->
+  119, both places now agree).
+- Report card lists the photo set when a run used several views.
+- Gallery page gets the favicon; GitHub repo gets a description,
+  the live homepage link, and topics (cargo-securement, sam-3,
+  meta-ai, fastapi, trucking, safety, computer-vision, modal).
+- Note: Ryan decided tonight not to submit the build to the
+  hackathon. The product, repo, and live app stand on their own;
+  polish continues on that basis.

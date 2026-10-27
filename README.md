@@ -75,7 +75,7 @@ road, does it for them.
 - **Technical Depth and Execution (20%):**
   docs/ARCHITECTURE.md (design decisions, including the measured
   reason straps are counted from close-ups plus tap marks, never
-  from full-frame guesses), 109 automated tests, examples/output/
+  from full-frame guesses), 119 automated tests, examples/output/
   (real pipeline artifacts), BUILD_LOG.md (the whole build, in
   the open).
 
