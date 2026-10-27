@@ -788,3 +788,20 @@ scripts never existed). Both are fixed and pinned by tests: the
 service worker is network-first (analyses are never cached) with
 the shell cached for flaky connections, the UI registers it, and
 test_pwa covers /health, /sw.js, the manifest, and the icons.
+
+## Oct 27 - Hardening, round four: intake vocabulary
+
+- Trailer type, load type, and photo role are normalized at
+  intake to the app's known vocabulary (the same choices the UI
+  offers). Raw client strings no longer flow into model prompts,
+  which closes a prompt-injection surface, and a typo'd type now
+  gets the generic prompt pack instead of silently degrading to
+  the weakest read (found live: "hay_bales" instead of "hay"
+  returned almost nothing on a good photo).
+- /verdicts now refuses non-object JSON bodies with a 400; the
+  same path survives a 2,000-level nested body. /analyze refuses
+  declared bodies over 120 MB up front.
+- Detection construction coerces hostile shapes into the
+  ValueError callers already handle (unhashable kind, non-
+  sequence box), and labels are coerced to text and capped at
+  120 characters. 150 tests.

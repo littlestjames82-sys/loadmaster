@@ -46,6 +46,7 @@ from PIL import Image
 
 from .detections import DetectionSet
 from .pipeline import run_pipeline
+from .prompt_packs import CARGO_PROMPTS, TRAILER_PROMPTS
 from .report import write_report
 
 app = FastAPI(title="LoadMaster", version="0.1.0")
@@ -267,6 +268,21 @@ def _user_inputs(trailer_type, load_type, bed_length_ft, load_length_ft, weight_
         "load_length_ft": load_length_ft,
         "weight_lb": weight_lb,
     }
+
+
+# Intake vocabulary. The UI offers fixed choices; the API normalizes
+# anything else to the fallback instead of passing raw client strings
+# downstream, where they would otherwise land inside model prompts
+# (injection surface) or silently select the weakest prompt pack
+# (a typo'd type reads far worse than the generic pack).
+_KNOWN_TRAILERS = set(TRAILER_PROMPTS)
+_KNOWN_LOADS = set(CARGO_PROMPTS) | {"generic"}
+_KNOWN_ROLES = {"side", "rear", "closeup"}
+
+
+def _norm_choice(value, known: set, fallback: str) -> str:
+    v = str(value or "").strip().lower()
+    return v if v in known else fallback
 
 
 # ---------------------------------------------------------------------
@@ -664,6 +680,15 @@ def analyze(
     lights and plate, close-ups carry the tie-down count."""
     if report_lang not in ("en", "es"):
         report_lang = "en"
+    trailer_type = _norm_choice(trailer_type, _KNOWN_TRAILERS, "unknown")
+    load_type = _norm_choice(load_type, _KNOWN_LOADS, "generic")
+    photo_role = _norm_choice(photo_role, _KNOWN_ROLES, "side")
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > 120_000_000:
+        return JSONResponse(
+            {"error": "request too large (four photos of at most 25 MB each)"},
+            status_code=413,
+        )
     client_ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
     if not client_ip:
         client_ip = request.client.host if request.client else "unknown"
@@ -693,7 +718,8 @@ def analyze(
     if photos:
         roles = list(photo_roles or [])
         for i, up in enumerate(photos[:4]):
-            uploads.append((up, roles[i] if i < len(roles) else "side"))
+            role = roles[i] if i < len(roles) else "side"
+            uploads.append((up, _norm_choice(role, _KNOWN_ROLES, "side")))
     elif photo is not None:
         uploads.append((photo, photo_role))
     if not uploads:
@@ -831,6 +857,10 @@ async def verdicts_only(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"error": "request body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse(
+            {"error": "request body must be a JSON object"}, status_code=400
+        )
     ds_dict = body.get("detections")
     if not isinstance(ds_dict, dict) or "detections" not in ds_dict:
         return JSONResponse(
@@ -859,6 +889,13 @@ async def verdicts_only(request: Request):
     if not isinstance(cross_records, list):
         cross_records = None
     inputs = body.get("inputs") or body.get("user_inputs") or {}
+    if not isinstance(inputs, dict):
+        inputs = {}
+    inputs = dict(inputs)
+    inputs["trailer_type"] = _norm_choice(
+        inputs.get("trailer_type"), _KNOWN_TRAILERS, "unknown")
+    inputs["load_type"] = _norm_choice(
+        inputs.get("load_type"), _KNOWN_LOADS, "generic")
     measurements = body.get("measurements")
     warnings: list[str] = []
 

@@ -48,12 +48,19 @@ class Detection:
     label: str = ""
 
     def __post_init__(self) -> None:
-        if self.kind not in KINDS:
-            raise ValueError(f"unknown detection kind: {self.kind}")
-        if len(self.bbox) != 4:
+        # Client-supplied sets arrive here: shape errors must be
+        # ValueError (callers handle those), never a bare TypeError
+        # from an unhashable kind or a non-sequence bbox.
+        if not isinstance(self.kind, str) or self.kind not in KINDS:
+            raise ValueError(f"unknown detection kind: {self.kind!r}")
+        if not isinstance(self.bbox, (list, tuple)) or len(self.bbox) != 4:
             raise ValueError("bbox must be [x1, y1, x2, y2]")
         if not self.label:
             self.label = self.kind.replace("_", " ")
+        # A label is display text (overlay + echoes): coerce and cap
+        # it so a hostile or broken client cannot bloat prompts,
+        # payloads, or the overlay renderer through it.
+        self.label = str(self.label)[:120]
 
     @property
     def center(self) -> tuple[float, float]:
