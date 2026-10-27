@@ -599,3 +599,17 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   (first 50 miles, then every 3 hours / 150 miles, after stops).
 - README quantified from the captured runs: 11 runs, 68 verdicts,
   second opinion cited in 19 verdict evidence records.
+
+## Oct 26 (night) - Hardening pass
+
+- Intake: every upload is validated, EXIF-transposed (a sideways
+  phone photo would otherwise poison SAM and every measurement),
+  downscaled to a 2048px edge, and capped at 25 MB, with plain
+  refusals for non-photos and unsupported formats.
+- Abuse guard: /analyze is rate limited per client IP (30/hour,
+  in-memory) so the public judging URL cannot quietly drain the
+  shared Meta API credits; the refusal is a friendly 429.
+- Modal function timeout 300s -> 600s for headroom on a worst-case
+  4-photo run with retries (typical runs: 15-110s).
+- Six new tests pin rotation, downscale, both refusals, the
+  endpoint-level rejection, and the limiter.

@@ -114,7 +114,7 @@ the first one's work.
   answers are recorded in the evidence of 19 verdicts, and in the
   live close-up run its strap count disagreed with SAM's (2 vs 1)
   and moved the edge-protection verdict on its read alone.
-- 113 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
+- 119 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 

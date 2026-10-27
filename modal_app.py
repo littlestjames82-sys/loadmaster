@@ -42,7 +42,7 @@ image = (
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("meta-model-api")],
-    timeout=300,  # a full analysis runs several SAM calls in parallel
+    timeout=600,  # headroom for a 4-photo run with retries; typical runs finish in 15-110s
     scaledown_window=300,  # keep a warm container 5 min so judges do not eat a cold start
 )
 @modal.asgi_app()

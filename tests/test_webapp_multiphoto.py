@@ -16,6 +16,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from loadmaster import detections as det_mod  # noqa: E402
 
 
+def _jpg() -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (64, 48), (90, 70, 50)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def _det(kind, source="sam", conf=0.9, label=""):
     return det_mod.Detection(
         id=f"{kind}-{source}-{conf}", kind=kind, bbox=[10, 10, 60, 60],
@@ -71,7 +81,7 @@ def _verdict(resp, check):
 
 def test_side_only_cannot_count_tiedowns(monkeypatch):
     client = _client(monkeypatch)
-    resp = _post(client, [("photo", ("side.jpg", b"img", "image/jpeg"))])
+    resp = _post(client, [("photo", ("side.jpg", _jpg(), "image/jpeg"))])
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["photo_sets"]) == 1
@@ -81,8 +91,8 @@ def test_side_only_cannot_count_tiedowns(monkeypatch):
 def test_closeup_in_set_grounds_the_count(monkeypatch):
     client = _client(monkeypatch)
     resp = _post(client, [
-        ("photos", ("side.jpg", b"img", "image/jpeg")),
-        ("photos", ("close.jpg", b"img", "image/jpeg")),
+        ("photos", ("side.jpg", _jpg(), "image/jpeg")),
+        ("photos", ("close.jpg", _jpg(), "image/jpeg")),
         ("photo_roles", (None, "side")),
         ("photo_roles", (None, "closeup")),
     ])

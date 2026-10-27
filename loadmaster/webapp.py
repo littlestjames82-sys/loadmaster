@@ -452,6 +452,60 @@ def gallery() -> str:
     return _gallery_html(load_gallery_entries())
 
 
+# ------------------------------------------------------------------
+# Intake hardening + abuse guard.
+# Phone photos carry EXIF orientation: without transposing, SAM sees
+# a sideways trailer and every measurement lands wrong. Oversized or
+# unreadable uploads get a plain refusal instead of a stack trace.
+# The rate limit protects the shared Meta API credits behind this
+# public URL during judging: generous for a person, useless for a
+# script.
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+MAX_IMAGE_EDGE = 2048
+_ANALYZE_LIMIT = 30
+_ANALYZE_WINDOW_S = 3600
+_analyze_hits: dict[str, list[float]] = {}
+
+
+def _normalize_upload(raw: bytes) -> bytes:
+    """Validate, auto-rotate, and downscale one uploaded photo.
+    Returns JPEG bytes. Raises ValueError with a readable message."""
+    if len(raw) > MAX_UPLOAD_BYTES:
+        raise ValueError("that photo is over 25 MB; please send a smaller copy")
+    try:
+        from PIL import ImageOps
+
+        img = Image.open(io.BytesIO(raw))
+        img.load()
+    except Exception:
+        raise ValueError("that file is not a readable photo (JPEG, PNG, or WebP works)")
+    if img.format not in ("JPEG", "PNG", "WEBP"):
+        raise ValueError(
+            f"unsupported photo format {img.format}; JPEG, PNG, or WebP works"
+        )
+    img = ImageOps.exif_transpose(img)
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+    w, h = img.size
+    if max(w, h) > MAX_IMAGE_EDGE:
+        scale = MAX_IMAGE_EDGE / max(w, h)
+        img = img.resize((round(w * scale), round(h * scale)))
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=88)
+    return out.getvalue()
+
+
+def _rate_limited(ip: str) -> bool:
+    now = time.monotonic()
+    hits = [t for t in _analyze_hits.get(ip, []) if now - t < _ANALYZE_WINDOW_S]
+    if len(hits) >= _ANALYZE_LIMIT:
+        _analyze_hits[ip] = hits
+        return True
+    hits.append(now)
+    _analyze_hits[ip] = hits
+    return False
+
+
 def _analyze_one_photo(photo_path: Path, trailer_type: str, load_type: str,
                        role: str, bed_length_ft: float | None, out_dir: Path) -> dict:
     """One photo through the pipeline. Returns its detection set,
@@ -499,6 +553,7 @@ def _analyze_one_photo(photo_path: Path, trailer_type: str, load_type: str,
 
 @app.post("/analyze")
 def analyze(
+    request: Request,
     photo: UploadFile | None = File(None),
     photos: list[UploadFile] | None = File(None),
     photo_role: str = Form("side"),
@@ -517,6 +572,14 @@ def analyze(
     lights and plate, close-ups carry the tie-down count."""
     if report_lang not in ("en", "es"):
         report_lang = "en"
+    client_ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    if not client_ip:
+        client_ip = request.client.host if request.client else "unknown"
+    if _rate_limited(client_ip):
+        return JSONResponse(
+            {"error": "too many analyses from this connection in the last hour; please wait a bit and try again"},
+            status_code=429,
+        )
     started = time.monotonic()
 
     uploads: list[tuple[UploadFile, str]] = []
@@ -539,8 +602,11 @@ def analyze(
             raw = up.file.read()
             if not raw:
                 return JSONResponse({"error": "empty photo upload"}, status_code=400)
-            suffix = Path(up.filename or "photo.jpg").suffix or ".jpg"
-            p = tmp_dir / f"photo{i}{suffix}"
+            try:
+                raw = _normalize_upload(raw)
+            except ValueError as exc:
+                return JSONResponse({"error": str(exc)}, status_code=400)
+            p = tmp_dir / f"photo{i}.jpg"
             p.write_bytes(raw)
             jobs.append((p, role))
 
