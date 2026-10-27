@@ -32,11 +32,19 @@ ROOT = Path(__file__).parent
 
 app = modal.App("loadmaster")
 
+# copy=True is load-bearing. Without it, Modal adds the local files
+# lazily at container startup, and on Oct 27, 2026 (push39) two
+# consecutive deploys reported success while the live app kept
+# serving the previous build's files and routes. Copying the files
+# into the image makes every content change a new image and a real
+# rollout; /version in the app reports the build that is live.
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_requirements(str(ROOT / "requirements.txt"))
-    .add_local_dir(str(ROOT / "loadmaster"), remote_path="/root/loadmaster")
-    .env({"LOADMASTER_BUILD": "push40-results-sample"})
+    .env({"LOADMASTER_BUILD": "push41-results-sample"})
+    .add_local_dir(
+        str(ROOT / "loadmaster"), remote_path="/root/loadmaster", copy=True
+    )
 )
 
 

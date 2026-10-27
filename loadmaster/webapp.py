@@ -314,7 +314,7 @@ def health() -> dict:
     return {"ok": True}
 
 
-BUILD_STAMP = "push40-results-sample"
+BUILD_STAMP = "push41-results-sample"
 
 
 @app.get("/version")
