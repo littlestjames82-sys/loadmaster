@@ -106,8 +106,10 @@ judged against the same evidence as the original run.
 
 Uploads are validated, EXIF-transposed (phone photos are often
 stored sideways; SAM and the measurement layer must see the photo
-upright), downscaled to a 2048 px edge, and capped at 25 MB. The
-analyze endpoint is rate limited per client IP (30 runs/hour,
+upright), downscaled to a 2048 px edge, and capped at 25 MB per photo. The
+ASGI intake rejects `/analyze` request bodies over 101 MB before
+multipart parsing, and a run accepts at most four photos. The analyze
+endpoint is rate limited per client IP (30 runs/hour,
 in-memory): the public judging URL spends from a shared, capped API
 credit pool, and the limit is the difference between a judge trying
 the app and a script draining it.

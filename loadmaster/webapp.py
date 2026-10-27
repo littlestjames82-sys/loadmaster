@@ -531,7 +531,9 @@ class _AnalyzeBodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        limit = getattr(self.app.state, "max_analyze_body_bytes", MAX_ANALYZE_BODY_BYTES)
+        limit = getattr(
+            scope["app"].state, "max_analyze_body_bytes", MAX_ANALYZE_BODY_BYTES
+        )
         headers = dict(scope.get("headers", []))
         declared = headers.get(b"content-length", b"")
         if declared.isdigit() and int(declared) > limit:
