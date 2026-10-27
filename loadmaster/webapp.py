@@ -51,6 +51,33 @@ from .report import write_report
 
 app = FastAPI(title="LoadMaster", version="0.1.0")
 
+
+def _register_extra_image_openers() -> None:
+    """Register HEIC/HEIF (and, when needed, AVIF) Pillow openers.
+
+    Phone photos are very often HEIC/HEIF (iPhone and Android
+    high-efficiency modes) and web downloads are often AVIF; stock
+    Pillow cannot open either. pillow-heif (in requirements.txt)
+    provides both openers. Registration is defensive: if the package
+    is missing the app still boots and every other format works.
+    """
+    try:
+        import pillow_heif
+
+        pillow_heif.register_heif_opener()
+        # Pillow >= 12 decodes AVIF natively; on older builds the
+        # pillow-heif AVIF opener covers it. Either way, a failure
+        # here must not take the app down.
+        try:
+            pillow_heif.register_avif_opener()
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+_register_extra_image_openers()
+
 _UI_PATH = Path(__file__).with_name("web_ui.html")
 _OVERLAY_MAX_DIM = 1280
 
@@ -314,7 +341,7 @@ def health() -> dict:
     return {"ok": True}
 
 
-BUILD_STAMP = "push41-results-sample"
+BUILD_STAMP = "push43-formats"
 
 
 @app.get("/version")
@@ -704,6 +731,16 @@ def sample_load():
 # script.
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_IMAGE_EDGE = 2048
+# Photo formats accepted at intake. Real-world photos arrive as
+# phone HEIC/HEIF and web AVIF as often as JPEG, and testers hit a
+# refusal wall on exactly those (field failure, Oct 27, 2026: the
+# owner's own hay photo, named .avif). Everything accepted here is
+# re-encoded to JPEG below, so downstream code never sees them.
+_SUPPORTED_FORMATS = (
+    "JPEG", "PNG", "WEBP", "HEIC", "HEIF", "AVIF",
+    "BMP", "TIFF", "GIF", "MPO",
+)
+_SUPPORTED_LIST = "JPEG, PNG, WebP, HEIC, HEIF, AVIF, BMP, TIFF, GIF, or MPO"
 _ANALYZE_LIMIT = 30
 _ANALYZE_WINDOW_S = 3600
 _analyze_hits: dict[str, list[float]] = {}
@@ -717,6 +754,7 @@ def _normalize_upload(raw: bytes) -> bytes:
     try:
         from PIL import ImageOps
 
+        _register_extra_image_openers()
         img = Image.open(io.BytesIO(raw))
         # The header alone declares the pixel count: refuse image
         # bombs before a single pixel is decoded.
@@ -733,11 +771,17 @@ def _normalize_upload(raw: bytes) -> bytes:
     except ValueError:
         raise
     except Exception:
-        raise ValueError("that file is not a readable photo (JPEG, PNG, or WebP works)")
-    if img.format not in ("JPEG", "PNG", "WEBP"):
         raise ValueError(
-            f"unsupported photo format {img.format}; JPEG, PNG, or WebP works"
+            f"that file is not a readable photo ({_SUPPORTED_LIST} works)"
         )
+    if img.format not in _SUPPORTED_FORMATS:
+        raise ValueError(
+            f"unsupported photo format {img.format}; {_SUPPORTED_LIST} works"
+        )
+    # Multi-frame formats (GIF, TIFF, MPO): the photo is the first
+    # frame; later frames are never load photos.
+    if getattr(img, "n_frames", 1) > 1:
+        img.seek(0)
     img = ImageOps.exif_transpose(img)
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")

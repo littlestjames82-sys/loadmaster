@@ -842,3 +842,25 @@ rollout. Verified live via /version (build push41-results-sample),
 CI smoke (issue #11, closed): POST /analyze 200 in 39.8s, two
 photo sets, both cross-checks ok, Spanish headline. Lesson: a
 green deploy is not a rolled deploy; verify the build stamp.
+
+## Oct 27, 2026 (afternoon): broad photo formats (push43)
+
+- Field failure that motivated it: the owner's own hay-bale photo
+  arrived named .avif and the live app refused it ("unsupported
+  photo format"). Real-world photos are HEIC/HEIF (phone
+  high-efficiency modes) and AVIF (web downloads) as often as
+  JPEG; every tester with an iPhone would hit the same wall.
+- _normalize_upload now accepts JPEG, PNG, WebP, HEIC, HEIF,
+  AVIF, BMP, TIFF, GIF (first frame), and MPO, and still
+  re-encodes everything to JPEG after the existing guards (25 MB
+  cap, 64 MP header cap, EXIF transpose, 2048px downscale).
+  Refusals now list the full supported set.
+- HEIC/HEIF decoding via pillow-heif (added to requirements.txt);
+  its openers are registered defensively in webapp, so the app
+  boots and serves every other format even if the package is
+  missing, and its AVIF opener covers Pillow builds without
+  native AVIF.
+- Tests: tests/test_formats.py adds BMP/TIFF/GIF round trips,
+  JPEG/PNG regressions, AVIF and HEIF round trips (generated at
+  test time, skipped only if the local encoder is unavailable),
+  and refusal wording. 164 tests.
