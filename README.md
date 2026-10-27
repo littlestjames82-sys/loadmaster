@@ -27,6 +27,15 @@ and see exactly which verdicts changed.
   Three real pipeline runs (firewood side view, excavator lowboy rear
   view, ratchet-strap anchor close-up), captured from the app itself.
 
+Real output, straight from those runs (detections outlined on the
+photo, verdicts one tap away in the app):
+
+![Firewood load with SAM 3.1 detections outlined](docs/images/firewood.jpg)
+
+![Excavator on a lowboy, rear view, detections outlined](docs/images/lowboy.jpg)
+
+![Ratchet strap anchor close-up, the view tie-down counting is based on](docs/images/closeup.jpg)
+
 ## Why it matters, in numbers
 
 - Cargo securement was the official vehicle focus area of CVSA

@@ -347,6 +347,9 @@ def _gallery_html(entries: list[dict]) -> str:
     parts = [
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<meta property=\"og:title\" content=\"LoadMaster - sample runs\">"
+        "<meta property=\"og:description\" content=\"Real runs: SAM 3.1 detections, calibrated measurements, 49 CFR 393 verdicts, and a Muse Spark second opinion, on real trailer photos.\">"
+        "<meta property=\"og:image\" content=\"https://littlestjames82-sys--loadmaster-fastapi-app.us-east.modal.run/icon-512.png\">"
         "<title>LoadMaster - Sample runs</title><style>"
         "body{margin:0;background:#0b0f14;color:#e8eef4;font-family:system-ui,sans-serif;}"
         "main{max-width:860px;margin:0 auto;padding:18px 14px 40px;}"

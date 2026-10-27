@@ -91,3 +91,23 @@ tie-down exception and demote-only cross-check behavior), report
 grounding and fallback, the web layer's cross-check wiring, and
 the gallery's captured-run shape. Live behavior is verified
 against the deployed app, not only locally.
+
+## Photo sets (Oct 26)
+
+A run may carry several photos of the same load. The web layer picks
+the primary set (first side view) for measurements, the overlay, and
+tap-to-correct; every set goes to the rules engine, which is where
+the per-role evidence rules live (close-ups ground the tie-down
+count, the rear view grounds lights and plate). Recheck requests
+carry all sets plus the cross-check records, so corrections are
+judged against the same evidence as the original run.
+
+## Intake and abuse guard (Oct 26)
+
+Uploads are validated, EXIF-transposed (phone photos are often
+stored sideways; SAM and the measurement layer must see the photo
+upright), downscaled to a 2048 px edge, and capped at 25 MB. The
+analyze endpoint is rate limited per client IP (30 runs/hour,
+in-memory): the public judging URL spends from a shared, capped API
+credit pool, and the limit is the difference between a judge trying
+the app and a script draining it.

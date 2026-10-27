@@ -613,3 +613,15 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
   4-photo run with retries (typical runs: 15-110s).
 - Six new tests pin rotation, downscale, both refusals, the
   endpoint-level rejection, and the limiter.
+
+## Oct 26 (night) - Polish pass
+
+- App + gallery: Open Graph tags so the links unfurl properly when
+  shared; one-line value prop in the app header.
+- README embeds the three real gallery overlays as images
+  (docs/images/), so the repo shows product output on first scroll.
+- ARCHITECTURE.md documents the photo-set and intake/rate-limit
+  design decisions.
+- Submission draft refreshed to current facts (119 tests, photo
+  sets, PWA install, cross-check evidence count, corrected
+  workforce stat wording). Still a draft awaiting Ryan's approval.
