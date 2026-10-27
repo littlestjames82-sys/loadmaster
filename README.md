@@ -26,6 +26,13 @@ and see exactly which verdicts changed.
 - **Sample runs:** https://littlestjames82-sys--loadmaster-fastapi-app.us-east.modal.run/gallery
   Three real pipeline runs (firewood side view, excavator lowboy rear
   view, ratchet-strap anchor close-up), captured from the app itself.
+- **Field results:** https://littlestjames82-sys--loadmaster-fastapi-app.us-east.modal.run/results
+  Every captured run of the live pipeline, unedited: 11 loads, 68 rule
+  verdicts (2 PASS, 6 CHECK THIS, 60 COULD NOT TELL — where a photo
+  cannot prove a check, the app says so instead of guessing).
+- **No photo handy?** The app itself has a one-tap sample run: it puts
+  a real firewood load through the full live pipeline, same as any
+  photo you would take.
 
 Real output, straight from those runs (detections outlined on the
 photo, verdicts one tap away in the app):

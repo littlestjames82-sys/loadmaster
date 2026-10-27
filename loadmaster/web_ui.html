@@ -137,7 +137,7 @@
       <h1>Load<span>Master</span></h1>
       <p>Trailer load check &middot; 49 CFR 393</p>
       <p style="margin-top:4px;">Photo in, plain-words verdicts out: what passes, what to fix first, and what a photo honestly cannot tell.</p>
-      <p style="margin-top:5px;"><a href="/gallery" style="color:var(--amber); font-weight:700; text-decoration:none;">See sample runs &rarr;</a></p>
+      <p style="margin-top:5px;"><a href="/gallery" style="color:var(--amber); font-weight:700; text-decoration:none;">See sample runs &rarr;</a> &nbsp;&middot;&nbsp; <a href="/results" style="color:var(--amber); font-weight:700; text-decoration:none;">Field results: every captured run &rarr;</a></p>
     </div>
   </div>
 </header>
@@ -151,6 +151,8 @@
     </div>
     <input id="cameraInput" class="hiddenFile" type="file" accept="image/*" capture="environment">
     <input id="photoInput" class="hiddenFile" type="file" accept="image/*">
+    <button type="button" id="sampleBtn" class="ghost" style="width:100%; margin-top:10px;">No photo handy? Check a sample load instead</button>
+    <p class="hint" id="sampleNote">One tap runs the real pipeline on a real photo: firewood on a utility trailer (photo by Vogler, CC BY-SA 4.0). It takes about a minute, same as any photo.</p>
     <div id="captureGuide"></div>
     <div class="qchips" id="qualityChips"></div>
     <div class="grid2">
@@ -285,7 +287,7 @@
   </section>
   <section id="printCard"></section>
 </main>
-<footer>LoadMaster by Ghost Developer Studio &middot; Checks a loaded trailer against federal cargo securement rules and tells you what to fix before you roll.</footer>
+<footer>LoadMaster by Ghost Developer Studio &middot; Checks a loaded trailer against federal cargo securement rules and tells you what to fix before you roll.<br><a href="/gallery" style="color:var(--amber); font-weight:700; text-decoration:none;">Sample runs</a> &middot; <a href="/results" style="color:var(--amber); font-weight:700; text-decoration:none;">Field results</a></footer>
 
 <script>
 "use strict";
@@ -293,7 +295,7 @@ var KIND_NAMES = {"trailer_bed":"Trailer bed","cargo":"Cargo","axle_estimate":"A
 var KIND_COLORS = {"trailer_bed":"#4da3ff","cargo":"#ffa02e","axle_estimate":"#b388ff","tarp":"#aa6eff","tiedown_closeup":"#35d07f","chain_hint":"#ffe14d","user_added":"#00dcdc","wheel":"#ffaa00"};
 
 var els = {};
-["photoPick","photoInput","cameraPick","cameraInput","trailerType","loadType","photoRole","bedLength","loadLength","weight",
+["photoPick","photoInput","cameraPick","cameraInput","sampleBtn","trailerType","loadType","photoRole","bedLength","loadLength","weight",
  "analyzeBtn","progressCard","progressText","progressElapsed","errorBox","resultsCard","resultSub",
  "photoWrap","photo","pins","hl","hlLabel","summaryBar","addBtn","modeNote","warnings",
  "verdictCard","verdicts","recheckNote","measureCard","measurements","findingsCard","findings","runNotes","reportCard","reportHeadline","reportBody","reportSource","deltaBox","captureGuide","qualityChips","photoGates","printBtn","printCard","crossCard","crossBody","reportLang","listenBtn","addViewBtn","extraPhotos","multiHint","otherViews"
@@ -334,6 +336,44 @@ function onPhotoChosen(input){
 }
 els.photoInput.addEventListener("change", function(){ onPhotoChosen(els.photoInput); });
 els.cameraInput.addEventListener("change", function(){ onPhotoChosen(els.cameraInput); });
+
+els.sampleBtn.addEventListener("click", function(){
+  clearError();
+  els.sampleBtn.disabled = true;
+  els.sampleBtn.textContent = "Loading the sample photo\u2026";
+  fetch("/sample-load.jpg")
+    .then(function(r){ if (!r.ok) throw new Error("HTTP " + r.status); return r.blob(); })
+    .then(function(blob){
+      var f = new File([blob], "sample-load.jpg", { type: "image/jpeg" });
+      els.trailerType.value = "utility";
+      els.loadType.value = "firewood";
+      els.photoRole.value = "side";
+      els.bedLength.value = "8";
+      els.loadLength.value = "8";
+      els.weight.value = "";
+      updateGuide();
+      state.file = f;
+      if (state.localUrl) URL.revokeObjectURL(state.localUrl);
+      state.localUrl = URL.createObjectURL(f);
+      els.photoPick.textContent = "Photo ready: sample load (firewood)";
+      els.photoPick.classList.add("done");
+      els.cameraPick.textContent = "Photo ready: sample load (firewood)";
+      els.cameraPick.classList.add("done");
+      els.analyzeBtn.disabled = false;
+      els.resultsCard.style.display = "block";
+      els.photo.src = state.localUrl;
+      els.resultSub.textContent = "Sample load loaded. Checking it now\u2026";
+      checkPhotoQuality(state.localUrl);
+      els.sampleBtn.disabled = false;
+      els.sampleBtn.textContent = "No photo handy? Check a sample load instead";
+      els.analyzeBtn.click();
+    })
+    .catch(function(err){
+      els.sampleBtn.disabled = false;
+      els.sampleBtn.textContent = "No photo handy? Check a sample load instead";
+      showError("Could not load the sample photo (" + err.message + "). You can still take or choose your own photo above.");
+    });
+});
 
 /* ---------- guided capture + instant quality gates ---------- */
 var GUIDE_TEXT = {
