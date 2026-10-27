@@ -51,6 +51,30 @@ def test_oversize_upload_refused():
         webapp._normalize_upload(b"x" * (webapp.MAX_UPLOAD_BYTES + 1))
 
 
+def test_analyze_rejects_oversized_chunked_body_before_parsing(monkeypatch):
+    client = _client(monkeypatch)
+    monkeypatch.setattr(webapp.app.state, "max_analyze_body_bytes", 64, raising=False)
+    chunks = iter((b"a" * 40, b"b" * 40))
+    resp = client.post(
+        "/analyze",
+        content=chunks,
+        headers={"content-type": "multipart/form-data; boundary=unused"},
+    )
+    assert resp.status_code == 413
+    assert "request body too large" in resp.json()["error"]
+
+
+def test_analyze_rejects_more_than_four_photos(monkeypatch):
+    client = _client(monkeypatch)
+    files = [
+        ("photos", (f"{i}.jpg", _jpeg_bytes(), "image/jpeg"))
+        for i in range(5)
+    ]
+    resp = client.post("/analyze", files=files, data={"trailer_type": "utility"})
+    assert resp.status_code == 400
+    assert "no more than 4 photos" in resp.json()["error"]
+
+
 def _client(monkeypatch):
     from loadmaster import detections as det_mod
 

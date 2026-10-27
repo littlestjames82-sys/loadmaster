@@ -516,9 +516,67 @@ def gallery() -> str:
 # script.
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 MAX_IMAGE_EDGE = 2048
+MAX_ANALYZE_BODY_BYTES = 4 * MAX_UPLOAD_BYTES + 1024 * 1024
 _ANALYZE_LIMIT = 30
 _ANALYZE_WINDOW_S = 3600
 _analyze_hits: dict[str, list[float]] = {}
+
+
+class _AnalyzeBodyLimitMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] != "/analyze":
+            await self.app(scope, receive, send)
+            return
+
+        limit = getattr(self.app.state, "max_analyze_body_bytes", MAX_ANALYZE_BODY_BYTES)
+        headers = dict(scope.get("headers", []))
+        declared = headers.get(b"content-length", b"")
+        if declared.isdigit() and int(declared) > limit:
+            await self._reject(send)
+            return
+
+        size = 0
+        rejected = False
+
+        async def limited_receive():
+            nonlocal size, rejected
+            message = await receive()
+            if message["type"] == "http.request":
+                size += len(message.get("body", b""))
+                if size > limit:
+                    rejected = True
+                    await self._reject(send)
+                    return {"type": "http.disconnect"}
+            return message
+
+        async def limited_send(message):
+            if not rejected:
+                await send(message)
+
+        try:
+            await self.app(scope, limited_receive, limited_send)
+        except Exception:
+            if not rejected:
+                raise
+
+    @staticmethod
+    async def _reject(send):
+        body = b'{"error":"request body too large (upload request limit exceeded)"}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+
+app.add_middleware(_AnalyzeBodyLimitMiddleware)
 
 
 def _normalize_upload(raw: bytes) -> bytes:
@@ -691,8 +749,13 @@ def analyze(
 
     uploads: list[tuple[UploadFile, str]] = []
     if photos:
+        if len(photos) > 4:
+            return JSONResponse(
+                {"error": "no more than 4 photos can be analyzed at once"},
+                status_code=400,
+            )
         roles = list(photo_roles or [])
-        for i, up in enumerate(photos[:4]):
+        for i, up in enumerate(photos):
             uploads.append((up, roles[i] if i < len(roles) else "side"))
     elif photo is not None:
         uploads.append((photo, photo_role))
