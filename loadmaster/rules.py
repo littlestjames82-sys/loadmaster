@@ -578,8 +578,19 @@ def check_forward_blocking(sets, mdict: dict | None) -> Verdict:
             "enable this check.",
             confidence_basis=f"no calibration: {reason}",
         )
-    ppi = float(cal["pixels_per_inch"])
-    bed_min_x = float(cal["bed_min_x"])
+    try:
+        ppi = float(cal["pixels_per_inch"])
+        bed_min_x = float(cal["bed_min_x"])
+    except (TypeError, ValueError, KeyError):
+        ppi, bed_min_x = 0.0, 0.0
+    if not math.isfinite(ppi) or ppi <= 0 or not math.isfinite(bed_min_x):
+        return _verdict(
+            cid, COULD_NOT_TELL,
+            "Forward blocking cannot be judged: the calibration "
+            "numbers supplied are not usable (pixels-per-inch must "
+            "be a positive finite number).",
+            confidence_basis="calibration present but numerically invalid",
+        )
     cargo = [d for ds in sets for d in ds.by_kind("cargo")]
     if not cargo:
         return _verdict(

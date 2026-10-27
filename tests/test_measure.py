@@ -224,7 +224,7 @@ def test_report_is_json_with_provenance():
     ds.add("cargo", [500, 220, 700, 270], confidence=0.7,
            mask_rle=rect_mask(500, 220, 200, 50))
     report = measure_load(ds, BED_FT)
-    blob = json.dumps(report.to_dict())  # must not raise
+    json.dumps(report.to_dict())  # must not raise
     assert report.to_dict()["schema"] == "loadmaster.measurements/1"
     for m in report.measurements:
         d = m.to_dict()

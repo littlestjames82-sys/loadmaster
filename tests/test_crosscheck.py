@@ -4,7 +4,6 @@ response-dict contract as sam_client._post, including the output
 item/content shape _extract_output_text reads.
 """
 
-import json
 from pathlib import Path
 
 import pytest

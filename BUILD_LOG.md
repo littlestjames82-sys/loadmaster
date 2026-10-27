@@ -718,3 +718,30 @@ quietly rewriting a captured artifact.
   nothing writable mounted, timeout and warm window as documented.
 - Added a .gitignore (pycache, venv, pytest cache) for cloners;
   the pushed tree was already clean of all three.
+
+## Oct 26 (late night) - Deep hardening: fuzz round
+
+Ryan asked for no flaws; the honest way to chase that is to attack
+the code. A seeded adversarial fuzz suite now ships in the repo
+(360 randomized cases per run) and it found two real bugs:
+
+- check_forward_blocking divided by the calibration's
+  pixels-per-inch with no guard: a supplied calibration with a
+  zero or non-numeric scale crashed the evaluation. It now
+  degrades to COULD NOT TELL with the reason named.
+- measure_load could report an infinite rear overhang as
+  "measured" when a client-supplied detection set carried
+  infinite coordinates: nonsense, and invalid JSON downstream.
+  A finite sweep at the measurement choke point degrades any
+  non-finite value to could_not_measure, and a non-finite
+  calibration scale downgrades the calibration itself.
+
+Also in this round: image-bomb refusal from the header's declared
+pixel count (over 64 MP) before any decoding, native reduced-scale
+JPEG decoding, /verdicts request bodies capped at 2 MB, public
+error messages sanitized (internal exception text no longer
+leaks; our own user-facing messages still show), and a
+40-request concurrency stress proving responses stay well-formed
+(200 or an honest 429, never a 500). Determinism of the full
+verdict path on the gallery data is pinned by test. Pyflakes is
+clean across package and tests. 137 tests, all passing.

@@ -4,7 +4,6 @@ garbage, and oversized recheck payloads must all degrade honestly,
 never crash and never fabricate a verdict change."""
 from __future__ import annotations
 
-import io
 import sys
 from pathlib import Path
 

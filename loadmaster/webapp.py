@@ -493,7 +493,20 @@ def _normalize_upload(raw: bytes) -> bytes:
         from PIL import ImageOps
 
         img = Image.open(io.BytesIO(raw))
+        # The header alone declares the pixel count: refuse image
+        # bombs before a single pixel is decoded.
+        if img.size[0] * img.size[1] > 64_000_000:
+            raise ValueError(
+                "that photo is extremely large (over 64 megapixels); "
+                "please send a smaller copy"
+            )
+        if img.format == "JPEG":
+            # Decode JPEGs at reduced scale natively: same result
+            # after our downscale, a fraction of the memory.
+            img.draft("RGB", (MAX_IMAGE_EDGE, MAX_IMAGE_EDGE))
         img.load()
+    except ValueError:
+        raise
     except Exception:
         raise ValueError("that file is not a readable photo (JPEG, PNG, or WebP works)")
     if img.format not in ("JPEG", "PNG", "WEBP"):
@@ -682,8 +695,15 @@ def analyze(
                 with ThreadPoolExecutor(max_workers=min(4, len(jobs))) as pool:
                     results = list(pool.map(work, enumerate(jobs)))
         except Exception as exc:
+            # Our own ValueErrors are written for users; anything
+            # else is reported by type only, so internal details
+            # (paths, library messages) never reach the public error.
+            if isinstance(exc, ValueError):
+                detail = str(exc)[:300]
+            else:
+                detail = type(exc).__name__
             return JSONResponse(
-                {"error": f"could not process that photo ({type(exc).__name__}: {exc})"},
+                {"error": f"could not process that photo ({detail})"},
                 status_code=400,
             )
 
@@ -757,6 +777,11 @@ async def verdicts_only(request: Request):
     No SAM calls happen here: this is the tap-to-correct recheck path.
     """
     started = time.monotonic()
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > 2_000_000:
+        return JSONResponse(
+            {"error": "request body too large (2 MB max)"}, status_code=413
+        )
     try:
         body = await request.json()
     except Exception:

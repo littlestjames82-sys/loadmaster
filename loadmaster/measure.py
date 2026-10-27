@@ -680,6 +680,23 @@ def measure_load(ds: DetectionSet, bed_length_ft: float | None) -> MeasurementRe
         measure_tarp_coverage(ds),
         measure_tiedown_gaps(ds, cal),
     ]
+    # Finite sweep: degenerate geometry (infinite or NaN extents in
+    # a client-supplied detection set) must never surface as a
+    # "measured" infinity, which is both nonsense and invalid JSON
+    # downstream. Anything non-finite degrades honestly instead.
+    if cal.status == "calibrated" and (
+        cal.pixels_per_inch is None
+        or not math.isfinite(cal.pixels_per_inch)
+        or cal.pixels_per_inch <= 0
+    ):
+        cal.status = "could_not_calibrate"
+        cal.reason = "the calibration scale was not a positive finite number"
+        cal.pixels_per_inch = None
+    for m in report.measurements:
+        if isinstance(m.value, (int, float)) and not math.isfinite(m.value):
+            m.status = "could_not_measure"
+            m.value = None
+            m.reason = "the geometry behind this measurement was not finite"
     if cal.status != "calibrated":
         report.notes.append(
             f"calibration unavailable: {cal.reason}; inch measurements are "
