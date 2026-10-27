@@ -805,3 +805,40 @@ test_pwa covers /health, /sw.js, the manifest, and the icons.
   ValueError callers already handle (unhashable kind, non-
   sequence box), and labels are coerced to text and capped at
   120 characters. 150 tests.
+
+## Oct 27, 2026 (afternoon): field results page + one-tap sample run
+
+- /results serves every captured run (the gallery three plus the
+  eight QA-sweep runs, slimmed into loadmaster/results/): overlay,
+  detections, second-opinion line, report, full verdict table, and
+  the run's inputs, with the honest spread printed at the top
+  (11 runs, 68 verdicts: 2 PASS, 6 CHECK THIS, 60 COULD NOT TELL).
+  Nothing edited after capture; the page says plainly that a scored
+  ground-truth set is still in preparation.
+- One-tap sample run: the home page offers "No photo handy? Check
+  a sample load instead." It fetches /sample-load.jpg (the real
+  firewood photo, Vogler CC BY-SA 4.0, credited in place), presets
+  the known inputs (utility / firewood / bed 8 ft / load 8 ft), and
+  runs the normal /analyze path. No special-cased demo code.
+- /version reports the live build stamp; tests pin all of it
+  (156 tests, CI green).
+
+## Oct 27, 2026: DEPLOY INCIDENT - successful deploys, stale app
+
+Push39 (results + sample) deployed "successfully" twice (push and
+manual dispatch) while the live app kept serving the previous
+build: /results and /sample-load.jpg 404'd for over 20 minutes
+across two independent network paths, long past the container
+drain window. Root cause: modal_app.py used add_local_dir in its
+default lazy mode, where Modal adds the files at container
+startup instead of into the image; in that mode the deploys did
+not produce a rollout of the new files. The tell was push40's
+error when a build step (.env) was placed after add_local_dir:
+Modal's own message explains the lazy mode and offers copy=True.
+Fix (push41): add_local_dir(..., copy=True) with the env stamp
+before it, so every file change is a new image and a real
+rollout. Verified live via /version (build push41-results-sample),
+/results 200 with all 11 runs, /sample-load.jpg 200, and the diag
+CI smoke (issue #11, closed): POST /analyze 200 in 39.8s, two
+photo sets, both cross-checks ok, Spanish headline. Lesson: a
+green deploy is not a rolled deploy; verify the build stamp.
