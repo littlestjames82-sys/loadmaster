@@ -46,7 +46,7 @@ evidence when there is none.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .detections import Detection, DetectionSet
 from .measure import MeasurementReport, _det_stats
@@ -81,9 +81,10 @@ CITATIONS = {
     "weight_placement": "49 CFR 393.100 (load placement; visual estimate only here)",
 }
 
-# A load resting within this many inches of the front of the bed has
-# no meaningful room to slide forward (check 4 threshold, documented
-# here so the number is auditable, not buried in a comparison).
+# Check 4 thresholds, documented here so the numbers are auditable,
+# not buried in comparisons: at or under the PASS gap the load is
+# effectively against the front; anything larger is CHECK THIS, with
+# the MAX band only changing how the finding is worded.
 FORWARD_BLOCKING_MAX_GAP_IN = 6.0
 # PASS requires the load to be EFFECTIVELY against the front of the
 # bed. A few inches of open gap with nothing shown in it is not

@@ -700,3 +700,21 @@ quietly rewriting a captured artifact.
   are capped (500 detections per set, 5 sets), and responses carry
   nosniff, no-referrer, and frame-deny headers.
 - Repo-wide secret-pattern scan: clean. 130 tests, all passing.
+
+## Oct 26 (night) - Full audit pass
+
+- Dependencies: pip-audit over the environment reports no known
+  vulnerabilities in any application dependency (the only findings
+  were in the local venv's own pip, upgraded; audit now fully
+  clean).
+- Code scan: pyflakes over the package found one unused import
+  (removed). CFR citations re-read against the checks: all match,
+  and the overhang citation deliberately names the subpart rather
+  than inventing a section.
+- Live surface inspected: /health ok, manifest ok, unknown paths
+  404, empty /verdicts body returns a clean 400 JSON, security
+  headers present.
+- modal_app.py reviewed: key only via the named Modal secret,
+  nothing writable mounted, timeout and warm window as documented.
+- Added a .gitignore (pycache, venv, pytest cache) for cloners;
+  the pushed tree was already clean of all three.
