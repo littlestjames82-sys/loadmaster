@@ -790,8 +790,15 @@ async def verdicts_only(request: Request):
         return JSONResponse(
             {"error": "request body too large (2 MB max)"}, status_code=413
         )
+    raw_body = bytearray()
+    async for chunk in request.stream():
+        if len(raw_body) + len(chunk) > 2_000_000:
+            return JSONResponse(
+                {"error": "request body too large (2 MB max)"}, status_code=413
+            )
+        raw_body.extend(chunk)
     try:
-        body = await request.json()
+        body = json.loads(raw_body)
     except Exception:
         return JSONResponse({"error": "request body must be JSON"}, status_code=400)
     ds_dict = body.get("detections")

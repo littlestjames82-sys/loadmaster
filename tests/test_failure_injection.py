@@ -115,3 +115,16 @@ def test_webapp_security_headers_and_verdicts_cap():
     })
     assert resp.status_code == 400
     assert "too many detections" in resp.json()["error"]
+
+
+def test_verdicts_stream_body_limit_ignores_declared_length():
+    from fastapi.testclient import TestClient
+
+    client = TestClient(webapp.app)
+    resp = client.post(
+        "/verdicts",
+        content=b"x" * 2_000_001,
+        headers={"content-type": "application/json", "content-length": "1"},
+    )
+    assert resp.status_code == 413
+    assert "request body too large" in resp.json()["error"]
