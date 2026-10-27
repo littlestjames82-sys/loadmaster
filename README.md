@@ -75,7 +75,7 @@ road, does it for them.
 - **Technical Depth and Execution (20%):**
   docs/ARCHITECTURE.md (design decisions, including the measured
   reason straps are counted from close-ups plus tap marks, never
-  from full-frame guesses), 137 automated tests, examples/output/
+  from full-frame guesses), 142 automated tests, examples/output/
   (real pipeline artifacts), BUILD_LOG.md (the whole build, in
   the open).
 
@@ -118,12 +118,13 @@ the first one's work.
   engine was designed to see a load. The side view carries the
   measurements, the rear view judges lights and plate, close-ups
   carry the tie-down count. Installable as a phone app (PWA).
+- Scoring harness (tools/score_runs.py): runs photo sets through the same path the app uses and diffs every verdict against expected statuses, built for the staged test set where the ground truth is known.
 - Measured on itself: across the 11 full runs captured during
   development (68 rule verdicts), the second opinion's independent
   answers are recorded in the evidence of 19 verdicts, and in the
   live close-up run its strap count disagreed with SAM's (2 vs 1)
   and moved the edge-protection verdict on its read alone.
-- 137 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
+- 142 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 

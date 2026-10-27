@@ -745,3 +745,34 @@ leaks; our own user-facing messages still show), and a
 (200 or an honest 429, never a 500). Determinism of the full
 verdict path on the gallery data is pinned by test. Pyflakes is
 clean across package and tests. 137 tests, all passing.
+
+## Oct 27 (after midnight) - Hardening, round three + scoring prep
+
+The media paths got the fuzz treatment and three more flaws fell
+out, all fixed:
+
+- MaskRaster.from_rle expanded stored runs with no size check: a
+  client-supplied mask (recheck path) claiming a giant raster
+  would be allocated on trust. Dimensions and cumulative runs are
+  now capped and validated before allocation.
+- render_overlay crashed on garbage geometry (NaN/infinite
+  coordinates, inverted boxes PIL refuses), and the pipeline
+  called it unguarded, so a bad render could cost the whole run.
+  The renderer now sanitizes every coordinate and skips what
+  cannot be drawn, and the pipeline treats the overlay as
+  presentation: a render failure becomes a note, never a lost
+  analysis.
+- write_report could raise on non-dict verdict entries despite
+  its never-raises contract; entries are now shape-filtered.
+
+Also: the rate limiter's identity table is memory-bounded
+(expired identities pruned, oldest dropped past a ceiling), and a
+new test extracts the app's inline JavaScript and parses it with
+node, so a JS syntax error can never ship silently again.
+
+Scoring prep for the staged test set: tools/score_runs.py runs a
+manifest of photo sets through the app's own per-photo path and
+diffs verdicts against expected statuses. Dry-ran live on the
+firewood dev photo: 6/6 verdicts matched its captured expectations.
+The dev manifest's expectations are self-consistency only; the
+scored set's ground truth is Ryan's staged loads. 142 tests.

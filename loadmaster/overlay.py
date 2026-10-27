@@ -27,6 +27,19 @@ KIND_COLORS = {
 }
 
 
+def _clean(v: float, lo: float, hi: float) -> float | None:
+    """A drawable coordinate, or None: client-supplied geometry can
+    carry NaN, infinities, and absurd magnitudes, all of which make
+    PIL raise instead of draw."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")):
+        return None
+    return min(max(f, lo), hi)
+
+
 def render_overlay(ds: DetectionSet, out_path: Path) -> Path:
     img = Image.open(ds.image_path).convert("RGB")
     layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
@@ -59,7 +72,20 @@ def render_overlay(ds: DetectionSet, out_path: Path) -> Path:
     for det in ds.detections:
         color = KIND_COLORS.get(det.kind, (255, 255, 255))
         if det.polygon and len(det.polygon) >= 3:
-            ldraw.polygon([tuple(p) for p in det.polygon], outline=color + (200,), width=2)
+            pts = []
+            ok = True
+            for p in det.polygon:
+                if not isinstance(p, (list, tuple)) or len(p) != 2:
+                    ok = False
+                    break
+                px = _clean(p[0], -2000, img.width + 2000)
+                py = _clean(p[1], -2000, img.height + 2000)
+                if px is None or py is None:
+                    ok = False
+                    break
+                pts.append((px, py))
+            if ok and len(pts) >= 3:
+                ldraw.polygon(pts, outline=color + (200,), width=2)
 
     img = Image.alpha_composite(img.convert("RGBA"), layer)
     draw = ImageDraw.Draw(img)
@@ -70,10 +96,17 @@ def render_overlay(ds: DetectionSet, out_path: Path) -> Path:
 
     for det in ds.detections:
         color = KIND_COLORS.get(det.kind, (255, 255, 255))
-        x1, y1, x2, y2 = det.bbox
+        box = [_clean(v, -2000, 22000) for v in (list(det.bbox) + [0, 0, 0, 0])[:4]]
+        if any(v is None for v in box):
+            continue  # un-drawable geometry: skip the box, keep the rest
+        x1, y1, x2, y2 = box
+        # Inverted boxes (x2 < x1) are legal in stored data and PIL
+        # refuses them; normalize the corner order for drawing.
+        x1, x2 = min(x1, x2), max(x1, x2)
+        y1, y2 = min(y1, y2), max(y1, y2)
         draw.rectangle([x1, y1, x2, y2], outline=color + (255,), width=3)
-        label = det.label
-        if det.confidence is not None:
+        label = str(det.label or "")
+        if isinstance(det.confidence, (int, float)) and det.confidence == det.confidence:
             label += f" {det.confidence:.2f}"
         if det.source == "user":
             label += " (user)"

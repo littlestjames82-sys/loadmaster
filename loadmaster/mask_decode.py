@@ -100,15 +100,33 @@ class MaskRaster:
             "runs": runs,
         }
 
+    # Stored masks arrive inside client-supplied detection sets (the
+    # recheck path): a hostile or broken RLE must be refused by size
+    # BEFORE it is allocated, never expanded on trust.
+    MAX_PIXELS = 100_000_000
+
     @classmethod
     def from_rle(cls, rle: dict) -> "MaskRaster":
+        width = int(rle["width"])
+        height = int(rle["height"])
+        if width <= 0 or height <= 0 or width * height > cls.MAX_PIXELS:
+            raise ValueError(
+                f"mask dimensions {width}x{height} are not acceptable"
+            )
         data = bytearray()
+        total = 0
         for v, n in rle["runs"]:
-            data.extend(bytes([1 if v else 0]) * int(n))
+            n = int(n)
+            if n < 0:
+                raise ValueError("mask run length is negative")
+            total += n
+            if total > width * height:
+                raise ValueError("mask runs exceed the declared dimensions")
+            data.extend(bytes([1 if v else 0]) * n)
         ox, oy = rle.get("offset", [0, 0])
         return cls(
-            width=int(rle["width"]),
-            height=int(rle["height"]),
+            width=width,
+            height=height,
             offset_x=int(ox),
             offset_y=int(oy),
             data=bytes(data),

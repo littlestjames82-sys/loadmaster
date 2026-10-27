@@ -527,6 +527,14 @@ def _normalize_upload(raw: bytes) -> bytes:
 
 def _rate_limited(ip: str) -> bool:
     now = time.monotonic()
+    if len(_analyze_hits) > 5000:
+        # Bound the table's memory in a long-lived container: drop
+        # identities whose hits have all expired, then the oldest.
+        for key in [k for k, v in _analyze_hits.items()
+                    if not v or now - v[-1] >= _ANALYZE_WINDOW_S]:
+            del _analyze_hits[key]
+        while len(_analyze_hits) > 10000:
+            _analyze_hits.pop(next(iter(_analyze_hits)))
     hits = [t for t in _analyze_hits.get(ip, []) if now - t < _ANALYZE_WINDOW_S]
     if len(hits) >= _ANALYZE_LIMIT:
         _analyze_hits[ip] = hits

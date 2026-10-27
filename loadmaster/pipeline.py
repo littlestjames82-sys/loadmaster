@@ -186,11 +186,17 @@ def run_pipeline(
     stem = photo.stem
     det_path = out_dir / f"{stem}_detections.json"
     det_path.write_text(json.dumps(ds.to_dict(), indent=1), encoding="utf-8")
-    overlay_path = render_overlay(ds, out_dir / f"{stem}_overlay.png")
-    outputs = {
-        "detections": str(det_path),
-        "overlay": str(overlay_path),
-    }
+    outputs = {"detections": str(det_path)}
+    try:
+        # The overlay is presentation: a render failure must never
+        # cost the user the detections and verdicts behind it.
+        overlay_path = render_overlay(ds, out_dir / f"{stem}_overlay.png")
+        outputs["overlay"] = str(overlay_path)
+    except Exception as exc:
+        ds.notes.append(
+            f"overlay could not be rendered ({type(exc).__name__}); "
+            "detections and verdicts are unaffected"
+        )
     report = None
     if bed_length_ft is not None:
         # Day 2 measurement stage (optional): calibrated inches from

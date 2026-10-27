@@ -52,7 +52,8 @@ def ordered(verdicts: list[dict]) -> list[dict]:
     """CHECK THIS first (engine's risk order preserved), then PASS,
     then COULD NOT TELL."""
     return sorted(
-        verdicts, key=lambda v: _STATUS_ORDER.get(_status(v), 3)
+        (v for v in verdicts if isinstance(v, dict)),
+        key=lambda v: _STATUS_ORDER.get(_status(v), 3),
     )
 
 
@@ -242,6 +243,9 @@ def write_report(
     lang: str = "en",
 ) -> dict:
     """Spark-written report, template on any failure. Never raises."""
+    # Only dict-shaped verdicts are verdicts; anything else in the
+    # list is ignored rather than crashing the summary.
+    verdicts = [v for v in (verdicts or []) if isinstance(v, dict)]
     if not verdicts:
         if lang == "es":
             return {
