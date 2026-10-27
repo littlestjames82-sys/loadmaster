@@ -689,6 +689,11 @@ def analyze(
             {"error": "request too large (four photos of at most 25 MB each)"},
             status_code=413,
         )
+    if photos and len(photos) > 4:
+        return JSONResponse(
+            {"error": "at most four photos can be analyzed at once"},
+            status_code=400,
+        )
     client_ip = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
     if not client_ip:
         client_ip = request.client.host if request.client else "unknown"
@@ -717,7 +722,7 @@ def analyze(
     uploads: list[tuple[UploadFile, str]] = []
     if photos:
         roles = list(photo_roles or [])
-        for i, up in enumerate(photos[:4]):
+        for i, up in enumerate(photos):
             role = roles[i] if i < len(roles) else "side"
             uploads.append((up, _norm_choice(role, _KNOWN_ROLES, "side")))
     elif photo is not None:

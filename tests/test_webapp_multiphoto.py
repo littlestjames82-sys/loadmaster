@@ -102,3 +102,13 @@ def test_closeup_in_set_grounds_the_count(monkeypatch):
     assert body["run"]["photos"] == 2
     v = _verdict(resp, "tiedown_count")
     assert v["status"] == "PASS", v
+
+
+def test_more_than_four_photos_is_rejected(monkeypatch):
+    client = _client(monkeypatch)
+    resp = _post(client, [
+        ("photos", (f"photo{i}.jpg", _jpg(), "image/jpeg"))
+        for i in range(5)
+    ])
+    assert resp.status_code == 400
+    assert resp.json()["error"] == "at most four photos can be analyzed at once"
