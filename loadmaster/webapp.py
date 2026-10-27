@@ -823,14 +823,24 @@ async def verdicts_only(request: Request):
     """
     started = time.monotonic()
     declared = request.headers.get("content-length")
-    if declared and declared.isdigit() and int(declared) > 2_000_000:
+    max_body_bytes = 2_000_000
+    if declared and declared.isdigit() and int(declared) > max_body_bytes:
         return JSONResponse(
             {"error": "request body too large (2 MB max)"}, status_code=413
         )
+    raw_body = bytearray()
+    async for chunk in request.stream():
+        raw_body.extend(chunk)
+        if len(raw_body) > max_body_bytes:
+            return JSONResponse(
+                {"error": "request body too large (2 MB max)"}, status_code=413
+            )
     try:
-        body = await request.json()
+        body = json.loads(raw_body)
     except Exception:
         return JSONResponse({"error": "request body must be JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "request body must be a JSON object"}, status_code=400)
     ds_dict = body.get("detections")
     if not isinstance(ds_dict, dict) or "detections" not in ds_dict:
         return JSONResponse(
@@ -859,6 +869,8 @@ async def verdicts_only(request: Request):
     if not isinstance(cross_records, list):
         cross_records = None
     inputs = body.get("inputs") or body.get("user_inputs") or {}
+    if not isinstance(inputs, dict):
+        return JSONResponse({"error": "body.inputs must be an object"}, status_code=400)
     measurements = body.get("measurements")
     warnings: list[str] = []
 

@@ -147,6 +147,25 @@ def test_verdicts_body_size_guard(monkeypatch):
     assert resp.status_code == 413
 
 
+def test_verdicts_body_size_guard_without_content_length(monkeypatch):
+    client, _ = _stub_client(monkeypatch)
+    chunks = iter((b" " * 1_000_001, b" " * 1_000_001))
+    resp = client.post(
+        "/verdicts", content=chunks,
+        headers={"content-type": "application/json"},
+    )
+    assert resp.status_code == 413
+
+
+def test_verdicts_rejects_non_object_json(monkeypatch):
+    client, _ = _stub_client(monkeypatch)
+    resp = client.post(
+        "/verdicts", json=[],
+    )
+    assert resp.status_code == 400
+    assert "JSON object" in resp.json()["error"]
+
+
 def test_concurrent_requests_stay_well_formed(monkeypatch):
     from concurrent.futures import ThreadPoolExecutor
 
