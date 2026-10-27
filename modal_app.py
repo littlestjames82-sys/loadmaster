@@ -36,6 +36,7 @@ image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_requirements(str(ROOT / "requirements.txt"))
     .add_local_dir(str(ROOT / "loadmaster"), remote_path="/root/loadmaster")
+    .env({"LOADMASTER_BUILD": "push40-results-sample"})
 )
 
 

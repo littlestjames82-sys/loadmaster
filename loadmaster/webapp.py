@@ -314,6 +314,14 @@ def health() -> dict:
     return {"ok": True}
 
 
+BUILD_STAMP = "push40-results-sample"
+
+
+@app.get("/version")
+def version() -> dict:
+    return {"build": BUILD_STAMP}
+
+
 # ---------------------------------------------------------------------
 # Judges' sample gallery: precomputed REAL pipeline runs (captured
 # from this service's /analyze on openly licensed development

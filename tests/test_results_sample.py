@@ -61,3 +61,9 @@ def test_gallery_links_results():
     resp = client.get("/gallery")
     assert resp.status_code == 200
     assert 'href="/results"' in resp.text
+
+
+def test_version_stamp_served():
+    resp = client.get("/version")
+    assert resp.status_code == 200
+    assert resp.json()["build"]
