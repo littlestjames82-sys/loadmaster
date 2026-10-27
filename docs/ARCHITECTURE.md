@@ -85,7 +85,7 @@ verdicts is covered by tests with Spark stubbed.
 
 ## Testing
 
-142 pytest tests: parser and decoding contracts, measurement
+144 pytest tests: parser and decoding contracts, measurement
 refusals, every rules branch (including the 5 ft / 1,100 lb
 tie-down exception and demote-only cross-check behavior), report
 grounding and fallback, the web layer's cross-check wiring, and

@@ -776,3 +776,15 @@ diffs verdicts against expected statuses. Dry-ran live on the
 firewood dev photo: 6/6 verdicts matched its captured expectations.
 The dev manifest's expectations are self-consistency only; the
 scored set's ground truth is Ryan's staged loads. 142 tests.
+
+## Oct 27 - Correction: the service worker was missing
+
+A full re-check against the actual route table (not assumed URLs)
+found that the PWA round had shipped the manifest, icons, and
+meta tags, but no service worker and no registration - the app
+was installable-shaped, not installable-complete. It also found
+that the health route is /health (an assumed /healthz in check
+scripts never existed). Both are fixed and pinned by tests: the
+service worker is network-first (analyses are never cached) with
+the shell cached for flaky connections, the UI registers it, and
+test_pwa covers /health, /sw.js, the manifest, and the icons.

@@ -450,6 +450,43 @@ def manifest():
     }
 
 
+_SW_JS = """// LoadMaster service worker: network-first for everything, with
+// the app shell cached so a repeat visit still opens on a flaky
+// connection. Analyses are never cached; every check runs live.
+const CACHE = "loadmaster-shell-v1";
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(CACHE).then((c) => c.add("/")).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(caches.keys().then((keys) => Promise.all(
+    keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))
+  )).then(() => self.clients.claim()));
+});
+self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
+  e.respondWith(
+    fetch(e.request).then((res) => {
+      if (e.request.mode === "navigate") {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put("/", copy));
+      }
+      return res;
+    }).catch(() => caches.match("/"))
+  );
+});
+"""
+
+
+@app.get("/sw.js")
+def service_worker():
+    from fastapi.responses import Response
+
+    return Response(
+        _SW_JS, media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
+
+
 @app.get("/icon-192.png")
 def icon_192():
     from fastapi.responses import FileResponse

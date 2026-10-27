@@ -28,3 +28,18 @@ def test_icons_served():
         resp = client.get(path)
         assert resp.status_code == 200
         assert resp.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_health_route():
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
+def test_service_worker_served_and_registered():
+    resp = client.get("/sw.js")
+    assert resp.status_code == 200
+    assert "javascript" in resp.headers["content-type"]
+    assert "addEventListener" in resp.text
+    page = client.get("/")
+    assert 'register("/sw.js")' in page.text
