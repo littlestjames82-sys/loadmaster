@@ -663,3 +663,21 @@ findings; all three verified against the code before touching it.
   (gap <= 6 in returns PASS; its own basis text admits geometry
   cannot prove what the load rests against). Changing that
   verdict's meaning is Ryan's call, pending.
+
+## Oct 26 (night) - Forward blocking bar tightened (Ryan's call)
+
+An external review pointed out that forward blocking returned PASS
+for any front gap up to 6 in, while its own basis text admitted
+geometry cannot prove what the load rests against. Ryan chose the
+tightened bar: PASS now requires the load effectively against the
+front (gap <= 2 in, inside measurement noise); a 2 to 6 in gap is
+CHECK THIS with wording that nothing in the photo shows what would
+stop the load, and the minimum fixes name the 2 in bar. One new
+test pins the mid-gap band; the existing 1.5 in PASS and 45 in
+CHECK THIS cases still hold (126 tests total).
+
+The three gallery captures predate the change and are left as
+captured (their verdicts are identical under the new bar: gaps of
+0.0 in PASS, 8.6 in CHECK THIS, close-up COULD NOT TELL); the
+gallery page footer now discloses the tightening rather than
+quietly rewriting a captured artifact.

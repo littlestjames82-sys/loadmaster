@@ -295,6 +295,16 @@ def test_forward_blocking_pass_small_gap():
     assert by_id(rep)["forward_blocking"]["status"] == PASS
 
 
+def test_forward_blocking_check_mid_gap():
+    # Cargo front at x=127 -> 27 px = about 4 in gap: too far to call
+    # it blocked (nothing in the photo shows what would stop it), so
+    # the tightened bar returns CHECK THIS, not PASS.
+    rep = evaluate_rules([side_set(cargo_front_x=127)],
+                         measurements(overhang=overhang_m(0.0)), inputs())
+    v = by_id(rep)["forward_blocking"]
+    assert v["status"] == CHECK_THIS and "nothing in the photo shows" in v["finding"]
+
+
 def test_forward_blocking_check_large_gap():
     # Cargo front at x=400 -> 300 px = 45 in gap.
     rep = evaluate_rules([side_set(cargo_front_x=400)],

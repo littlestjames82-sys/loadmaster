@@ -85,6 +85,12 @@ CITATIONS = {
 # no meaningful room to slide forward (check 4 threshold, documented
 # here so the number is auditable, not buried in a comparison).
 FORWARD_BLOCKING_MAX_GAP_IN = 6.0
+# PASS requires the load to be EFFECTIVELY against the front of the
+# bed. A few inches of open gap with nothing shown in it is not
+# blocking: the load can surge that far and arrive with momentum.
+# (Tightened Oct 26 after an external review made the point that the
+# old 6 in PASS bar claimed more than geometry can prove.)
+FORWARD_BLOCKING_PASS_GAP_IN = 2.0
 
 
 # ---------------------------------------------------------------------
@@ -592,22 +598,37 @@ def check_forward_blocking(sets, mdict: dict | None) -> Verdict:
             front, front_det = edge, d
     gap_in = max(0.0, (front - bed_min_x) / ppi)
     ids = [front_det.id, str(cal.get("bed_detection_id"))]
-    if gap_in <= FORWARD_BLOCKING_MAX_GAP_IN:
+    basis = (
+        "front gap derived deterministically from the Day 2 "
+        "calibration (bed front edge, pixels-per-inch) and the "
+        f"frontmost cargo extent ({front_det.kind} {front_det.id}); "
+        "geometry shows slide room, it cannot prove what the load "
+        "rests against"
+    )
+    if gap_in <= FORWARD_BLOCKING_PASS_GAP_IN:
         return _verdict(
             cid, PASS,
             f"The load's front edge sits {gap_in:.1f} in from the front "
-            f"of the bed, inside the {FORWARD_BLOCKING_MAX_GAP_IN:g} in "
-            "blocking threshold: it has no real room to slide forward "
-            "under braking.",
+            "of the bed, effectively against the front structure: it "
+            "has no room to build momentum before it meets it.",
             detection_ids=ids,
             measurement_names=["calibration"],
-            confidence_basis=(
-                "front gap derived deterministically from the Day 2 "
-                "calibration (bed front edge, pixels-per-inch) and the "
-                f"frontmost cargo extent ({front_det.kind} {front_det.id}); "
-                "geometry shows slide room, it cannot prove what the load "
-                "rests against"
-            ),
+            confidence_basis=basis,
+        )
+    if gap_in <= FORWARD_BLOCKING_MAX_GAP_IN:
+        return _verdict(
+            cid, CHECK_THIS,
+            f"The load can slide forward: its front edge is {gap_in:.1f} in "
+            "behind the front of the bed, and nothing in the photo shows "
+            "what would stop it. Under braking that gap is how far the "
+            "load can surge before it hits anything.",
+            detection_ids=ids,
+            measurement_names=["calibration"],
+            minimum_fix="Shift the load forward until it is effectively "
+                        "against the headboard or bulkhead (under "
+                        f"{FORWARD_BLOCKING_PASS_GAP_IN:g} in of open gap), "
+                        "or place secured blocking in the gap.",
+            confidence_basis=basis,
         )
     return _verdict(
         cid, CHECK_THIS,
@@ -618,12 +639,9 @@ def check_forward_blocking(sets, mdict: dict | None) -> Verdict:
         measurement_names=["calibration"],
         minimum_fix="Block the front of the load: shift it forward against "
                     "the headboard or bulkhead, or place secured blocking "
-                    f"so the open gap is under {FORWARD_BLOCKING_MAX_GAP_IN:g} in.",
-        confidence_basis=(
-            "front gap derived deterministically from the Day 2 "
-            "calibration (bed front edge, pixels-per-inch) and the "
-            f"frontmost cargo extent ({front_det.kind} {front_det.id})"
-        ),
+                    "so it is effectively against the front (under "
+                    f"{FORWARD_BLOCKING_PASS_GAP_IN:g} in of open gap).",
+        confidence_basis=basis,
     )
 
 

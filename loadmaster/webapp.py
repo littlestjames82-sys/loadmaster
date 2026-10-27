@@ -415,8 +415,11 @@ def _gallery_html(entries: list[dict]) -> str:
     parts.append(
         "<p class=\"sub\">A photo cannot verify strap tension, tie-down "
         "ratings, or load weight; checks needing those are marked COULD "
-        "NOT TELL rather than guessed. LoadMaster by Ghost Developer "
-        "Studio.</p></main></body></html>"
+        "NOT TELL rather than guessed. These runs were captured on "
+        "Oct 26, 2026; the forward-blocking PASS bar was tightened "
+        "afterward (the load must sit within 2 in of the front, not "
+        "6), and no verdict above changes under the new bar. "
+        "LoadMaster by Ghost Developer Studio.</p></main></body></html>"
     )
     return "".join(parts)
 
