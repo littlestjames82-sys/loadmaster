@@ -75,7 +75,7 @@ road, does it for them.
 - **Technical Depth and Execution (20%):**
   docs/ARCHITECTURE.md (design decisions, including the measured
   reason straps are counted from close-ups plus tap marks, never
-  from full-frame guesses), 119 automated tests, examples/output/
+  from full-frame guesses), 125 automated tests, examples/output/
   (real pipeline artifacts), BUILD_LOG.md (the whole build, in
   the open).
 
@@ -123,7 +123,7 @@ the first one's work.
   answers are recorded in the evidence of 19 verdicts, and in the
   live close-up run its strap count disagreed with SAM's (2 vs 1)
   and moved the edge-protection verdict on its read alone.
-- 119 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
+- 125 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 

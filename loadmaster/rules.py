@@ -113,6 +113,34 @@ class UserInputs:
             raise ValueError(
                 f"load_type must be one of {LOAD_TYPES}, got {self.load_type!r}"
             )
+        # Declared numbers arrive from forms and JSON bodies. Any
+        # that is not a positive finite quantity is dropped to None,
+        # so the checks that needed it degrade to COULD NOT TELL
+        # instead of computing verdicts from nonsense (a negative
+        # weight would let the WLL arithmetic pass for free).
+        for name in ("load_length_ft", "weight_lb"):
+            v = getattr(self, name)
+            if v is not None and (
+                not isinstance(v, (int, float)) or isinstance(v, bool)
+                or not math.isfinite(v) or v <= 0
+            ):
+                setattr(self, name, None)
+        wll = self.tiedown_wll_lb
+        if isinstance(wll, (int, float)) and not isinstance(wll, bool):
+            if not math.isfinite(wll) or wll <= 0:
+                self.tiedown_wll_lb = None
+        elif isinstance(wll, list):
+            kept = []
+            for e in wll:
+                n = e.get("wll_lb") if isinstance(e, dict) else e
+                if (
+                    isinstance(n, (int, float)) and not isinstance(n, bool)
+                    and math.isfinite(n) and n > 0
+                ):
+                    kept.append(e)
+            self.tiedown_wll_lb = kept or None
+        elif wll is not None:
+            self.tiedown_wll_lb = None
 
     @classmethod
     def from_dict(cls, d: dict) -> "UserInputs":

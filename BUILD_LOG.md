@@ -637,3 +637,29 @@ Proof runs (10 live SAM calls, outputs in examples/output/):
 - Note: Ryan decided tonight not to submit the build to the
   hackathon. The product, repo, and live app stand on their own;
   polish continues on that basis.
+
+## Oct 26 (night) - External review fixes
+
+An outside ChatGPT review of the public repo landed three real
+findings; all three verified against the code before touching it.
+
+- Input validation (confirmed): declared numbers flowed into the
+  rules math unchecked, so a negative weight made the aggregate
+  WLL comparison pass for free. The engine now drops any declared
+  number that is not positive and finite to None (checks degrade
+  to COULD NOT TELL), tie-down rating lists are entry-sanitized,
+  and /analyze refuses unusable numbers at the boundary with caps
+  (lengths 200 ft, weight 500,000 lb). Six tests pin it.
+- Rate limit backstop (partly confirmed): the per-IP limiter keys
+  on the first X-Forwarded-For value and lives per container, so
+  identity spoofing or warm extra containers multiply it. Added a
+  per-container daily ceiling (400 analyses) as a hard bound on
+  credit spend behind the public URL.
+- Stale doc (confirmed): ARCHITECTURE.md still said 109 tests.
+  Counts now agree everywhere (125), and a GitHub Actions Tests
+  workflow runs the suite on every push so the claim is checkable
+  from the repo itself.
+- The review's forward-blocking point is also confirmed in code
+  (gap <= 6 in returns PASS; its own basis text admits geometry
+  cannot prove what the load rests against). Changing that
+  verdict's meaning is Ryan's call, pending.

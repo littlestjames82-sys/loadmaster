@@ -35,6 +35,7 @@ import html as html_lib
 import inspect
 import io
 import json
+import math
 import tempfile
 import time
 from pathlib import Path
@@ -510,6 +511,23 @@ def _rate_limited(ip: str) -> bool:
     return False
 
 
+# Backstop behind the per-IP limit: a per-container daily ceiling on
+# total analyses, so the shared API credits have a hard daily bound
+# even if client identity is spoofed or many containers are warm.
+_DAILY_CAP = 400
+_day_hits: list[float] = []
+
+
+def _global_limited() -> bool:
+    now = time.monotonic()
+    while _day_hits and now - _day_hits[0] >= 86400:
+        _day_hits.pop(0)
+    if len(_day_hits) >= _DAILY_CAP:
+        return True
+    _day_hits.append(now)
+    return False
+
+
 def _analyze_one_photo(photo_path: Path, trailer_type: str, load_type: str,
                        role: str, bed_length_ft: float | None, out_dir: Path) -> dict:
     """One photo through the pipeline. Returns its detection set,
@@ -584,6 +602,21 @@ def analyze(
             {"error": "too many analyses from this connection in the last hour; please wait a bit and try again"},
             status_code=429,
         )
+    if _global_limited():
+        return JSONResponse(
+            {"error": "LoadMaster has reached its daily analysis capacity; please try again tomorrow"},
+            status_code=429,
+        )
+    for name, v, cap in (
+        ("bed length", bed_length_ft, 200.0),
+        ("load length", load_length_ft, 200.0),
+        ("weight", weight_lb, 500000.0),
+    ):
+        if v is not None and (not math.isfinite(v) or v <= 0 or v > cap):
+            return JSONResponse(
+                {"error": f"the {name} given is not a usable number; check it and try again"},
+                status_code=400,
+            )
     started = time.monotonic()
 
     uploads: list[tuple[UploadFile, str]] = []
