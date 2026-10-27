@@ -5,6 +5,7 @@ meta-sam-parser>=0.1.0
 Pillow>=10.0
 # Tests only:
 pytest>=8.0
+httpx2>=2.12.0
 # Web service + hosting (working app):
 fastapi>=0.110
 uvicorn>=0.29
