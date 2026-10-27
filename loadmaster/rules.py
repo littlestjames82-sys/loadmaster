@@ -652,8 +652,11 @@ def check_forward_blocking(sets, mdict: dict | None) -> Verdict:
 def _cross_view(records: list[dict] | None, role: str) -> dict | None:
     """The first successful cross-check view for a photo role."""
     for r in records or []:
+        if not isinstance(r, dict):
+            continue
         if r.get("photo_role") == role and r.get("status") == "ok":
-            return r.get("view") or {}
+            view = r.get("view")
+            return view if isinstance(view, dict) else {}
     return None
 
 
@@ -1016,7 +1019,10 @@ def evaluate_rules(sets, measurements, inputs, crosscheck=None) -> dict:
     mdict = _as_measurements_dict(measurements)
     if not isinstance(inputs, UserInputs):
         inputs = UserInputs.from_dict(inputs)
-    records = list(crosscheck or [])
+    # Cross-check records can arrive from a client body (the web
+    # recheck path): keep only dict-shaped records so a malformed
+    # entry is ignored rather than crashing the whole evaluation.
+    records = [r for r in (crosscheck or []) if isinstance(r, dict)]
 
     basis = tiedown_basis(dsets)
     verdicts: list[Verdict] = []

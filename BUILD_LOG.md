@@ -681,3 +681,22 @@ captured (their verdicts are identical under the new bar: gaps of
 0.0 in PASS, 8.6 in CHECK THIS, close-up COULD NOT TELL); the
 gallery page footer now discloses the tightening rather than
 quietly rewriting a captured artifact.
+
+## Oct 26 (night) - Hardening, round two (failure injection)
+
+- New failure-injection tests at the seams, and one real bug fell
+  out: evaluate_rules crashed with AttributeError on a malformed
+  (non-dict) cross-check record, a shape a client can supply
+  through the /verdicts recheck body. Records are now dict-filtered
+  at evaluation entry and view payloads are shape-checked; junk
+  records are ignored and verdict-for-verdict output matches the
+  no-cross-check baseline.
+- Pipeline seams pinned: a SAM prompt erroring after retries is
+  recorded as an error state in the run record and notes (never a
+  silent zero match), and a cross-check failure degrades to a note
+  with verdicts computed without it.
+- Upload reads are capped (an oversize file is refused from its
+  first bytes instead of being loaded whole), /verdicts payloads
+  are capped (500 detections per set, 5 sets), and responses carry
+  nosniff, no-referrer, and frame-deny headers.
+- Repo-wide secret-pattern scan: clean. 130 tests, all passing.

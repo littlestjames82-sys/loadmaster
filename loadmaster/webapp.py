@@ -273,6 +273,15 @@ def _user_inputs(trailer_type, load_type, bed_length_ft, load_length_ft, weight_
 # Routes.
 # ---------------------------------------------------------------------
 
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    return resp
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     try:
@@ -639,7 +648,9 @@ def analyze(
         tmp_dir = Path(tmp)
         jobs = []
         for i, (up, role) in enumerate(uploads):
-            raw = up.file.read()
+            # Read with a cap: an oversize upload is refused from its
+            # first bytes, never loaded whole into memory first.
+            raw = up.file.read(MAX_UPLOAD_BYTES + 1)
             if not raw:
                 return JSONResponse({"error": "empty photo upload"}, status_code=400)
             try:
@@ -754,6 +765,16 @@ async def verdicts_only(request: Request):
     if not isinstance(ds_dict, dict) or "detections" not in ds_dict:
         return JSONResponse(
             {"error": "body.detections must be a detection set object"},
+            status_code=400,
+        )
+    if len(ds_dict.get("detections") or []) > 500:
+        return JSONResponse(
+            {"error": "too many detections in one set (500 max)"},
+            status_code=400,
+        )
+    if isinstance(body.get("sets"), list) and len(body["sets"]) > 5:
+        return JSONResponse(
+            {"error": "too many photo sets in one recheck (5 max)"},
             status_code=400,
         )
     # Multi-photo runs hand back every set plus the cross-check
