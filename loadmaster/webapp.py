@@ -341,7 +341,7 @@ def health() -> dict:
     return {"ok": True}
 
 
-BUILD_STAMP = "push44-cargo-nouns"
+BUILD_STAMP = "push45-spark-rescue"
 
 
 @app.get("/version")

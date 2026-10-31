@@ -980,6 +980,32 @@ def apply_crosscheck(verdicts: list[Verdict], records: list[dict] | None,
                     "Confirm the load is physically blocked at the front "
                     "(headboard, bulkhead, or secured blocking) before rolling.",
                 )
+        loose = side.get("loose_or_escaped_items_visible")
+        if loose == "yes" and "tiedown_count" in by_id:
+            v = by_id["tiedown_count"]
+            _attach_cross(
+                v,
+                "Spark's read of the side photo: an item of the load "
+                "appears loose or escaped from its containment",
+                f"securement verdict before cross-check: {v.status}",
+                v.status != PASS,
+            )
+            if v.status == PASS:
+                _demote(
+                    v,
+                    "Cross-check disagreement: Spark's independent read "
+                    "sees an item loose or escaped from the load, so the "
+                    "securement is not holding the load together the "
+                    "way the count alone suggested; both views are shown.",
+                    "Secure or remove the loose item, then recheck.",
+                )
+            else:
+                v.finding += (
+                    " Cross-check: Spark's independent read of the side "
+                    "photo also sees an item loose or escaped from the "
+                    "load's containment; secure or remove it before "
+                    "rolling."
+                )
         rh = side.get("load_looks_rear_heavy")
         if rh in ("yes", "no") and "weight_placement" in by_id:
             v = by_id["weight_placement"]

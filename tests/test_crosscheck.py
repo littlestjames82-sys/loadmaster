@@ -62,7 +62,12 @@ def test_parse_rear_and_side():
                     "tarp_covering_load": "yes"}
     side = parse_answer(
         '{"load_looks_rear_heavy": "unclear", "front_blocked": "no"}', "side")
-    assert side == {"load_looks_rear_heavy": "unclear", "front_blocked": "no"}
+    assert side == {"load_looks_rear_heavy": "unclear", "front_blocked": "no",
+                    "loose_or_escaped_items_visible": "unclear"}
+    side2 = parse_answer(
+        '{"load_looks_rear_heavy": "no", "front_blocked": "yes", '
+        '"loose_or_escaped_items_visible": "yes"}', "side")
+    assert side2["loose_or_escaped_items_visible"] == "yes"
 
 
 def test_parse_loose_values_coerce_to_unclear():

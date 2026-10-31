@@ -904,3 +904,43 @@ green deploy is not a rolled deploy; verify the build stamp.
   per-bag containment analysis, not cargo presence.
 - Tests: 164 existing pass, plus tests/test_prompt_packs.py (7 new)
   pinning the pack contents and the IoU helper. 171 total.
+
+## Oct 31, 2026 (later): Spark-guided cargo rescue + containment read (push45)
+
+- crosscheck.py: new locate read. When SAM finds no cargo,
+  locate_cargo asks Spark to say whether a load is present, name it
+  with a short noun phrase, and box it (0-1000 coords). The noun is
+  sanitized (2-5 plain words) and the box validated before either is
+  used; an absent load is a first-class answer, and failures arrive
+  as status "error", never as "no cargo".
+- pipeline.py: the SAM ingest loop is now _ingest_results (shared by
+  both passes). After the main pass, if the cross-check is on, the
+  role is not closeup, and no cargo exists, Spark's noun drives ONE
+  more SAM pass and its objects join the set with full provenance
+  (prompt = Spark's noun). Spark's box never becomes a detection:
+  detections still come only from SAM or the user. Outcomes are
+  noted in the run record ("cargo_rescue") and the detection notes.
+- Live proof: the vehicle transporter declared generic (sweep found
+  nothing) was rescued end-to-end: Spark named the load "stacked
+  truck cabs" and SAM segmented it on the second pass. Honest
+  misses, also live: the rusty steel rack and the hauled modular
+  building defeat SAM under every noun tried (15+ prompts across
+  both) - they remain tap-to-correct cases, as the steel pack note
+  has said since the first matrix. Negative control: on an empty
+  lowboy, Spark's locate over-read the raised ramps as "rusty metal
+  frames", SAM segmented nothing, and no detection or verdict was
+  fabricated from Spark's word alone.
+- Containment: the side cross-check now also answers
+  loose_or_escaped_items_visible. rules.apply_crosscheck attaches
+  a "yes" to the tie-down verdict as a cross_check record, demotes
+  a PASS to CHECK_THIS, and otherwise appends the observation to
+  the finding. Live on the barite flatbed photo, Spark answered
+  "yes": the escaped bag is now surfaced in the tie-down finding
+  and the Second opinion card, which is where a one-bag-out-of-the-
+  wrap detail honestly belongs today (per-bag SAM containment
+  analysis remains future work).
+- Bonus from the push44 sweep: net-wrapped round hay bales declared
+  generic were segmented by "shrink wrapped pallet" (10 bales).
+- Tests: 182 pass (11 new: parse_locate + locate transport, rescue
+  success / negative control / no-rescue-when-found, containment
+  demote / annotate / no-op).

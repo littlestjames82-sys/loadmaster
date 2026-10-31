@@ -15,6 +15,13 @@ photo's role, and its answer is parsed into plain fields:
   side (full side view):
     load_looks_rear_heavy                     "yes" | "no" | "unclear"
     front_blocked                             "yes" | "no" | "unclear"
+    loose_or_escaped_items_visible            "yes" | "no" | "unclear"
+
+When SAM finds no cargo at all, a separate locate read (locate_cargo)
+asks Spark to name the load and box it; the pipeline then re-prompts
+SAM with Spark's noun (Spark points, SAM cuts). Every detection still
+comes from SAM or the user: a Spark box alone never becomes a
+detection, so the evidence standard is unchanged.
 
 rules.py consumes these views: the rear view is the only source for
 the lights/plate half of the overhang check, the close-up edge
@@ -80,9 +87,27 @@ ROLE_QUESTIONS: dict[str, str] = {
         '"front_blocked": "yes" if the front of the load is blocked '
         'against forward movement (headboard, bulkhead, or other cargo '
         'touching it), "no" if there is open space in front of the '
+        'load, "unclear" if you cannot tell, '
+        '"loose_or_escaped_items_visible": "yes" if any item of the '
+        'load appears loose, slipped out of its wrapping or '
+        'containment, hanging off the load or the trailer, or fallen '
+        'from the load, "no" if every item appears contained in the '
         'load, "unclear" if you cannot tell}'
     ),
 }
+
+LOCATE_QUESTION = (
+    "This photo shows a trailer that may or may not be carrying a "
+    "load. Answer ONLY with a JSON object, no other text, with "
+    "exactly these keys:\n"
+    '{"cargo_present": true if a load or cargo is on the trailer, '
+    'false if the trailer is empty, "cargo_noun": a short noun '
+    'phrase of 2 to 4 words naming the load itself, for example '
+    '"stack of wrapped pallets" or "rusty steel frame" (null if '
+    'cargo_present is false), "cargo_box": {"x1": <int>, '
+    '"y1": <int>, "x2": <int>, "y2": <int>} bounding the whole load '
+    "in 0-1000 image coordinates (null if cargo_present is false)}"
+)
 
 
 @dataclass
@@ -184,6 +209,68 @@ def parse_answer(text: str, photo_role: str) -> dict:
     return {
         "load_looks_rear_heavy": _tri(data.get("load_looks_rear_heavy")),
         "front_blocked": _tri(data.get("front_blocked")),
+        "loose_or_escaped_items_visible": _tri(
+            data.get("loose_or_escaped_items_visible")
+        ),
+    }
+
+
+_NOUN_OK = re.compile(r"^[a-z0-9][a-z0-9 \-']{1,48}$")
+
+
+def _clean_noun(value) -> str | None:
+    """Sanitize Spark's cargo noun before it becomes a SAM prompt:
+    short, plain words only; anything else is not a prompt."""
+    if not isinstance(value, str):
+        return None
+    noun = " ".join(value.strip().lower().split())
+    if not _NOUN_OK.match(noun):
+        return None
+    if not (2 <= len(noun.split()) <= 5):
+        return None
+    return noun
+
+
+def _clean_box(value):
+    """Validate a 0-1000 cargo box; returns [x1, y1, x2, y2] or None."""
+    if not isinstance(value, dict):
+        return None
+    try:
+        box = [float(value[k]) for k in ("x1", "y1", "x2", "y2")]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if any(not (0.0 <= c <= 1000.0) for c in box):
+        return None
+    if box[2] - box[0] < 30 or box[3] - box[1] < 30:
+        return None
+    return box
+
+
+def parse_locate(text: str) -> dict:
+    """Parse Spark's locate answer into {cargo_present, cargo_noun,
+    cargo_box}. Raises ValueError when no usable JSON object exists.
+    An absent load is a first-class answer, not an error."""
+    candidate = text.strip()
+    fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
+    if fence:
+        candidate = fence.group(1)
+    else:
+        start, end = candidate.find("{"), candidate.rfind("}")
+        if start == -1 or end <= start:
+            raise ValueError("no JSON object in Spark's answer")
+        candidate = candidate[start : end + 1]
+    data = json.loads(candidate)
+    if not isinstance(data, dict):
+        raise ValueError("Spark's answer JSON is not an object")
+    present = data.get("cargo_present")
+    if not isinstance(present, bool):
+        raise ValueError("cargo_present missing or not a boolean")
+    if not present:
+        return {"cargo_present": False, "cargo_noun": None, "cargo_box": None}
+    return {
+        "cargo_present": True,
+        "cargo_noun": _clean_noun(data.get("cargo_noun")),
+        "cargo_box": _clean_box(data.get("cargo_box")),
     }
 
 
@@ -253,6 +340,64 @@ def ask_spark(
             time.sleep(backoff_s * (2 ** (attempt - 1)))
     return CrossCheckResult(
         photo=str(image_path), photo_role=photo_role, status="error",
+        raw_answer=raw, latency_s=time.monotonic() - started,
+        attempts=max_attempts, error=last_error,
+    )
+
+
+def locate_cargo(
+    image_path: Path,
+    timeout: float = 75.0,
+    max_attempts: int = 2,
+    backoff_s: float = 2.0,
+    _poster=None,
+) -> CrossCheckResult:
+    """Ask Spark to name and box the load (the rescue read used when
+    SAM finds no cargo). Same transport and failure contract as
+    ask_spark: failures arrive as status "error", never as a view
+    that reads as "no cargo". photo_role is reported as "locate"."""
+    poster = _poster or _post
+    data_url, _sw, _sh, _ow, _oh = prepare_image(Path(image_path))
+    payload = {
+        "model": MODEL,
+        "input": [
+            {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "input_text", "text": LOCATE_QUESTION},
+                    {"type": "input_image", "image_url": data_url},
+                ],
+            }
+        ],
+        "stream": False,
+    }
+    started = time.monotonic()
+    last_error: str | None = None
+    raw = ""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            parsed = poster(payload, timeout)
+            raw = _extract_output_text(parsed)
+            if not raw:
+                raise ValueError("Spark returned no output text")
+            view = parse_locate(raw)
+            return CrossCheckResult(
+                photo=str(image_path), photo_role="locate", status="ok",
+                view=view, raw_answer=raw,
+                latency_s=time.monotonic() - started, attempts=attempt,
+            )
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")[:300]
+            last_error = f"HTTP {exc.code}: {body}"
+            if exc.code not in (429, 500, 502, 503, 504):
+                break
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+        if attempt < max_attempts:
+            time.sleep(backoff_s * (2 ** (attempt - 1)))
+    return CrossCheckResult(
+        photo=str(image_path), photo_role="locate", status="error",
         raw_answer=raw, latency_s=time.monotonic() - started,
         attempts=max_attempts, error=last_error,
     )

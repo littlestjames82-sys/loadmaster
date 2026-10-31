@@ -31,12 +31,12 @@ from pathlib import Path
 
 from PIL import Image
 
-from .crosscheck import ask_spark
+from .crosscheck import ask_spark, locate_cargo
 from .detections import DetectionSet, filter_wheels_to_axle
 from .mask_decode import MaskRaster
 from .measure import write_measurements
 from .overlay import render_overlay
-from .prompt_packs import HEAVY_LOAD_TYPES, LOOSE_LOAD_TYPES, get_pack
+from .prompt_packs import HEAVY_LOAD_TYPES, LOOSE_LOAD_TYPES, PromptSpec, get_pack
 from .rules import UserInputs, evaluate_rules
 from .sam_client import run_prompts
 
@@ -87,54 +87,11 @@ def _scale_mask(raster: MaskRaster, sx: float, sy: float) -> dict:
     return scaled.to_rle()
 
 
-def run_pipeline(
-    photo: Path,
-    trailer_type: str,
-    load_type: str,
-    photo_role: str,
-    out_dir: Path,
-    bed_length_ft: float | None = None,
-    rules_inputs: UserInputs | None = None,
-    crosscheck: bool = False,
-) -> tuple[DetectionSet, dict]:
-    # The cross-check reads the photo independently, so it runs
-    # CONCURRENTLY with the SAM prompts instead of after them: its
-    # latency hides inside the segmentation time. ask_spark never
-    # raises (failures arrive as status="error" results).
-    cc_box: dict = {}
-
-    def _run_cc() -> None:
-        cc_box["result"] = ask_spark(photo, photo_role)
-
-    cc_thread: threading.Thread | None = None
-    if crosscheck:
-        cc_thread = threading.Thread(target=_run_cc, daemon=True)
-        cc_thread.start()
-
-    with Image.open(photo) as im:
-        orig_w, orig_h = im.size
-
-    pack = get_pack(trailer_type, load_type, photo_role)
-    results = run_prompts(photo, [spec.prompt for spec in pack])
-
-    ds = DetectionSet(
-        image_path=str(photo),
-        image_width=orig_w,
-        image_height=orig_h,
-        trailer_type=trailer_type,
-        load_type=load_type,
-        photo_role=photo_role,
-    )
-    run_record: dict = {
-        "photo": str(photo),
-        "trailer_type": trailer_type,
-        "load_type": load_type,
-        "photo_role": photo_role,
-        "bed_length_ft": bed_length_ft,
-        "prompts": [],
-    }
-    wheel_boxes: list[tuple[list[float], float | None]] = []
-
+def _ingest_results(ds, pack, results, orig_w, orig_h, wheel_boxes, run_record):
+    """Fold one SAM prompt pass into the detection set: prompt
+    outcomes join the run record, errored prompts are noted (never
+    read as zero matches), wheel boxes are collected for the axle
+    filter, and cargo boxes are deduped across nouns."""
     for spec, res in zip(pack, results):
         entry = {
             "prompt": spec.prompt,
@@ -199,6 +156,57 @@ def run_pipeline(
                 bonus_only=spec.bonus_only,
             )
 
+
+
+def run_pipeline(
+    photo: Path,
+    trailer_type: str,
+    load_type: str,
+    photo_role: str,
+    out_dir: Path,
+    bed_length_ft: float | None = None,
+    rules_inputs: UserInputs | None = None,
+    crosscheck: bool = False,
+) -> tuple[DetectionSet, dict]:
+    # The cross-check reads the photo independently, so it runs
+    # CONCURRENTLY with the SAM prompts instead of after them: its
+    # latency hides inside the segmentation time. ask_spark never
+    # raises (failures arrive as status="error" results).
+    cc_box: dict = {}
+
+    def _run_cc() -> None:
+        cc_box["result"] = ask_spark(photo, photo_role)
+
+    cc_thread: threading.Thread | None = None
+    if crosscheck:
+        cc_thread = threading.Thread(target=_run_cc, daemon=True)
+        cc_thread.start()
+
+    with Image.open(photo) as im:
+        orig_w, orig_h = im.size
+
+    pack = get_pack(trailer_type, load_type, photo_role)
+    results = run_prompts(photo, [spec.prompt for spec in pack])
+
+    ds = DetectionSet(
+        image_path=str(photo),
+        image_width=orig_w,
+        image_height=orig_h,
+        trailer_type=trailer_type,
+        load_type=load_type,
+        photo_role=photo_role,
+    )
+    run_record: dict = {
+        "photo": str(photo),
+        "trailer_type": trailer_type,
+        "load_type": load_type,
+        "photo_role": photo_role,
+        "bed_length_ft": bed_length_ft,
+        "prompts": [],
+    }
+    wheel_boxes: list[tuple[list[float], float | None]] = []
+
+    _ingest_results(ds, pack, results, orig_w, orig_h, wheel_boxes, run_record)
     axles, stats = filter_wheels_to_axle(wheel_boxes, orig_w, orig_h)
     for det in axles:
         ds.detections.append(det)
@@ -208,6 +216,41 @@ def run_pipeline(
             f"wheel boxes filtered to {len(axles)} axle estimate(s); "
             "raw wheel boxes are never reported as a count"
         )
+
+    # Spark-guided cargo rescue (push45): SAM found no cargo for the
+    # declared load type, so Spark names the load and SAM takes a
+    # second pass with Spark's noun. Detections still come only from
+    # SAM; if the second pass also finds nothing, the run says so.
+    if crosscheck and photo_role != "closeup" and not ds.by_kind("cargo"):
+        loc = locate_cargo(photo)
+        run_record["cargo_rescue"] = loc.to_dict()
+        noun = loc.view.get("cargo_noun") if loc.status == "ok" else None
+        if loc.status == "ok" and loc.view.get("cargo_present") and noun:
+            spec = PromptSpec(noun, "cargo", "spark-guided rescue noun")
+            res2 = run_prompts(photo, [noun])
+            _ingest_results(ds, [spec], res2, orig_w, orig_h,
+                            wheel_boxes, run_record)
+            if ds.by_kind("cargo"):
+                ds.notes.append(
+                    f"SAM found no cargo for the declared load type; "
+                    f"Spark described the load as '{noun}' and SAM "
+                    f"segmented it on the second pass"
+                )
+            else:
+                ds.notes.append(
+                    f"Spark described the load as '{noun}' but SAM "
+                    f"could not segment it; cargo remains unmeasured"
+                )
+        elif loc.status == "ok" and not loc.view.get("cargo_present"):
+            ds.notes.append(
+                "Spark's independent locate read also saw no cargo "
+                "on this trailer"
+            )
+        elif loc.status == "ok":
+            ds.notes.append(
+                "Spark saw a load but gave no usable noun for a "
+                "second SAM pass; cargo remains unmeasured"
+            )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     stem = photo.stem
