@@ -944,3 +944,25 @@ green deploy is not a rolled deploy; verify the build stamp.
 - Tests: 182 pass (11 new: parse_locate + locate transport, rescue
   success / negative control / no-rescue-when-found, containment
   demote / annotate / no-op).
+
+## Addendum, Oct 31, 2026 (evening): hosted POST hang diagnosed as network path, not app
+
+- After the push45 deploy, one live /analyze from the Muse sandbox
+  succeeded (vehicle transporter, 33s, rescue verified live), then
+  every POST from the sandbox began hanging with zero bytes back -
+  including an empty POST and POSTs to nonexistent routes that
+  should return instant 404/422s, while GET /health, /version and
+  /analyze (405) answer in ~2s from the same sandbox. POSTs from
+  the sandbox to other hosts (GitHub API) work normally.
+- The app itself is proven healthy from another network: the
+  Diagnose workflow's live smoke at 19:31Z ran a full multi-photo
+  /analyze (firewood side + strap close-up, Spanish report) to
+  HTTP 200 in 48.9s against the push45 deployment, and the Modal
+  logs show clean 24-29s /analyze completions for push44/push45.
+- Conclusion: POSTs from the sandbox's shared egress address to
+  Modal's edge are being stalled upstream of the app (edge/proxy
+  layer); the identical code completes full local runs in ~18s.
+  Nothing in push45 or the app config explains it, and no app-side
+  fix is indicated. User-facing networks (Ryan's phone, judges)
+  are unaffected per the smoke evidence. Re-verify the flatbed
+  case live when a POST from a clean network path is available.
