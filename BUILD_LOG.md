@@ -864,3 +864,43 @@ green deploy is not a rolled deploy; verify the build stamp.
   JPEG/PNG regressions, AVIF and HEIF round trips (generated at
   test time, skipped only if the local encoder is unavailable),
   and refusal wording. 164 tests.
+
+## Oct 31, 2026: cargo nouns for unitized loads (push44)
+
+- Field failure that motivated it: a properly strapped flatbed of
+  stretch-wrapped barite pallets returned COULD NOT TELL on all six
+  checks. Root cause: cargo prompting keys off the declared load
+  type, and "generic" had NO cargo prompt at all, so SAM was never
+  asked about the cargo. The scrap-heap case had the mirror problem:
+  loose material's only noun was the vague "load".
+- Second SAM prompt matrix (22 calls; raw results in the goal
+  files, sam-matrix-2/): "shrink wrapped pallet" segmented the
+  barite stack (7 objects, 0.52-0.84) and "wrapped pallet" hit too
+  (6, up to 0.88), but both missed warehouse water pallets where
+  plain "pallet" hit 3 at 0.87-0.94, so pallet packs run plain and
+  wrapped nouns together. "stack of bags" hit both bag photos
+  (0.56-0.77); "bags" over-fires and is not used. "roll of steel"
+  hit the steel coil at 0.95 ("steel coil" only 0.63). The scrap
+  heap segments with "pile of scrap metal" (0.79) / "junk pile"
+  (0.73); "scrap metal" was empty.
+- prompt_packs.py: CARGO_PROMPTS values are now lists. New load
+  types pallets, bagged, scrap; steel adds "roll of steel"; generic
+  runs the unitized sweep (pallet / shrink wrapped pallet / stack
+  of bags). Scrap joins LOOSE_LOAD_TYPES (and the web layer's loose
+  set, so the rules category stays loose_material). UI gains the
+  three new load types.
+- pipeline.py: cargo detections from multi-noun packs are deduped
+  by bbox IoU >= 0.85, keeping the higher confidence, so one stack
+  found under three nouns is one object in the measurements.
+- Proof, same photos before/after: barite flatbed (generic) went
+  from 0 cargo detections and 6x COULD NOT TELL to 10 cargo objects
+  and a forward-blocking PASS (the rest stay COULD NOT TELL for the
+  standing by-design reasons: tie-down counting needs close-ups,
+  WLL needs weight and ratings, overhang needs a rear view). Scrap
+  declared as scrap went from no cargo to the pile segmented, with
+  forward-blocking and overhang CHECK THIS firing on real geometry;
+  declared as loose_material it is unchanged (all COULD NOT TELL).
+  The escaped-bag detail itself is still not flagged; that needs
+  per-bag containment analysis, not cargo presence.
+- Tests: 164 existing pass, plus tests/test_prompt_packs.py (7 new)
+  pinning the pack contents and the IoU helper. 171 total.

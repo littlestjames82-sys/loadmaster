@@ -95,7 +95,7 @@ _RULES_ENTRY_POINTS = (
 # the SAM prompt packs; the rules engine's UserInputs names the load
 # CLASS (49 CFR 393's framing). The web layer bridges the two.
 _HEAVY_LOAD_TYPES = {"heavy_equipment", "excavator", "wheel_loader", "heavy_wheeled_tracked"}
-_LOOSE_LOAD_TYPES = {"loose_material", "hay"}
+_LOOSE_LOAD_TYPES = {"loose_material", "hay", "scrap"}
 
 
 def _rules_inputs(inputs: dict) -> dict:
@@ -341,7 +341,7 @@ def health() -> dict:
     return {"ok": True}
 
 
-BUILD_STAMP = "push43-formats"
+BUILD_STAMP = "push44-cargo-nouns"
 
 
 @app.get("/version")

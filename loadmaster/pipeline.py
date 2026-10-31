@@ -54,6 +54,19 @@ def _rules_load_category(load_type: str, override: str | None) -> str:
     return "general"
 
 
+def _bbox_iou(a: list[float], b: list[float]) -> float:
+    """Intersection-over-union of two [x1, y1, x2, y2] boxes."""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    if inter <= 0:
+        return 0.0
+    area_a = max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+    area_b = max(0.0, b[2] - b[0]) * max(0.0, b[3] - b[1])
+    union = area_a + area_b - inter
+    return inter / union if union > 0 else 0.0
+
+
 def _scale_mask(raster: MaskRaster, sx: float, sy: float) -> dict:
     """Rescale a sent-space mask raster into original-image space and
     return its RLE dict for the detection record."""
@@ -154,6 +167,20 @@ def run_pipeline(
                 # over-firing; never a raw count).
                 wheel_boxes.append((bbox, obj.confidence))
                 continue
+            if spec.kind == "cargo":
+                # Multi-noun cargo packs (matrix-2) re-find the same
+                # stack under several nouns; near-identical boxes are
+                # one object, kept once at the higher confidence so
+                # measurement weighting is not doubled.
+                dupe = None
+                for existing in ds.by_kind("cargo"):
+                    if existing.source == "sam" and _bbox_iou(existing.bbox, bbox) >= 0.85:
+                        dupe = existing
+                        break
+                if dupe is not None:
+                    if (dupe.confidence or 0) >= (obj.confidence or 0):
+                        continue
+                    ds.remove(dupe.id)
             polygon = []
             mask_rle = None
             if obj.mask is not None:
