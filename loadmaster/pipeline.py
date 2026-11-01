@@ -91,7 +91,7 @@ def _ingest_results(ds, pack, results, orig_w, orig_h, wheel_boxes, run_record):
     """Fold one SAM prompt pass into the detection set: prompt
     outcomes join the run record, errored prompts are noted (never
     read as zero matches), wheel boxes are collected for the axle
-    filter, and cargo boxes are deduped across nouns."""
+    filter, and cargo and tie-down boxes are deduped across nouns."""
     for spec, res in zip(pack, results):
         entry = {
             "prompt": spec.prompt,
@@ -124,13 +124,14 @@ def _ingest_results(ds, pack, results, orig_w, orig_h, wheel_boxes, run_record):
                 # over-firing; never a raw count).
                 wheel_boxes.append((bbox, obj.confidence))
                 continue
-            if spec.kind == "cargo":
-                # Multi-noun cargo packs (matrix-2) re-find the same
-                # stack under several nouns; near-identical boxes are
-                # one object, kept once at the higher confidence so
-                # measurement weighting is not doubled.
+            if spec.kind in ("cargo", "tiedown_closeup"):
+                # Multi-noun packs re-find the same object under
+                # several nouns (cargo stacks in matrix-2; a tie-down
+                # seen by both the strap and chain prompts); near-
+                # identical boxes are one object, kept once at the
+                # higher confidence so counts are not doubled.
                 dupe = None
-                for existing in ds.by_kind("cargo"):
+                for existing in ds.by_kind(spec.kind):
                     if existing.source == "sam" and _bbox_iou(existing.bbox, bbox) >= 0.85:
                         dupe = existing
                         break

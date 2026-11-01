@@ -54,3 +54,29 @@ def test_bbox_iou():
     assert _bbox_iou([0, 0, 10, 10], [0, 0, 10, 10]) == 1.0
     assert _bbox_iou([0, 0, 10, 10], [20, 20, 30, 30]) == 0.0
     assert 0.80 < _bbox_iou([0, 0, 10, 10], [0, 0, 10, 9]) < 0.95
+
+
+def _closeup_specs(load_type):
+    return get_pack("flatbed", load_type, "closeup")
+
+
+def test_closeup_pack_counts_straps_and_chains_for_any_load():
+    # Oct 31 cable-reel case: a chain-secured load declared generic
+    # counted zero tie-downs because the close-up pack asked only
+    # for ratchet straps. Chains are a counting source now.
+    for load_type in ("generic", "firewood", "excavator"):
+        specs = _closeup_specs(load_type)
+        prompts = [spec.prompt for spec in specs]
+        assert "ratchet strap" in prompts, load_type
+        assert "chain" in prompts, load_type
+        counting = [spec for spec in specs if spec.kind == "tiedown_closeup"]
+        assert len(counting) == 2, load_type
+        assert all(not spec.bonus_only for spec in counting), load_type
+
+
+def test_fullframe_chain_stays_a_hint():
+    # The full-frame chain prompt remains presence-only: counting
+    # still lives in close-ups and user marks, never full frames.
+    pack = get_pack("flatbed", "excavator", "side")
+    chain_specs = [spec for spec in pack if spec.prompt == "chain"]
+    assert chain_specs and all(spec.kind == "chain_hint" for spec in chain_specs)

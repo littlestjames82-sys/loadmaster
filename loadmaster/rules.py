@@ -268,10 +268,10 @@ def tiedown_basis(sets: list[DetectionSet]) -> TiedownBasis:
     """The ONLY tie-down count this engine trusts.
 
     Counted: tiedown_closeup detections that are not bonus_only (the
-    anchor close-up pack is the counting source; full-frame strap
-    hits carry bonus_only=True and are skipped), plus user-added
-    tie-down marks from tap-to-correct. Nothing else counts - not
-    chain hints, not full-frame straps, not a guess.
+    anchor close-up pack is the counting source - straps and chains
+    both arrive under that kind), plus user-added tie-down marks
+    from tap-to-correct. Nothing else counts - not full-frame chain
+    hints, not full-frame straps, not a guess.
     """
     counted: list[Detection] = []
     basis_present = False

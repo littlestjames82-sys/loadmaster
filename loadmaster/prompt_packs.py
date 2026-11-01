@@ -132,7 +132,7 @@ STRAP_FULLFRAME = PromptSpec(
     bonus_only=True,
 )
 STRAP_CLOSEUP = PromptSpec("ratchet strap", "tiedown_closeup", "matrix: 0.79 in anchor close-up; the tie-down counting source")
-CHAIN_CLOSEUP = PromptSpec("chain", "chain_hint", "close-up chain presence")
+CHAIN_CLOSEUP = PromptSpec("chain", "tiedown_closeup", "counting source for chained loads: Oct 31 probe on the cable-reel close-up returned 4 objects 0.68-0.80, matching the cross-check's visual count of 4; previously kind chain_hint (presence only), so chain-secured loads counted zero")
 
 LOOSE_LOAD_TYPES = {"hay", "loose_material", "scrap"}
 HEAVY_LOAD_TYPES = {"excavator", "heavy_equipment", "wheel_loader"}
@@ -150,11 +150,10 @@ def get_pack(trailer_type: str, load_type: str, photo_role: str) -> list[PromptS
 
     if photo_role == "closeup":
         # Tie-down counting lives here (matrix: straps are a scale
-        # problem). Chain close-ups ride along for chained loads.
-        pack = [STRAP_CLOSEUP]
-        if load_type in HEAVY_LOAD_TYPES:
-            pack.append(CHAIN_CLOSEUP)
-        return pack
+        # problem). Chains count too: heavy flatbed freight is
+        # chain-secured, and the Oct 31 cable-reel case proved the
+        # strap-only pack counted a fully chained load as zero.
+        return [STRAP_CLOSEUP, CHAIN_CLOSEUP]
 
     pack: list[PromptSpec] = []
     pack.extend(TRAILER_PROMPTS.get(trailer_type, TRAILER_PROMPTS["unknown"]))
