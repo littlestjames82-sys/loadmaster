@@ -966,3 +966,25 @@ green deploy is not a rolled deploy; verify the build stamp.
   fix is indicated. User-facing networks (Ryan's phone, judges)
   are unaffected per the smoke evidence. Re-verify the flatbed
   case live when a POST from a clean network path is available.
+
+## push46-chain-closeup, Oct 31, 2026 (commit 9d933270)
+
+- The close-up tie-down pack asked SAM only for "ratchet strap,"
+  so chain-secured loads counted zero tie-downs (cable-reel field
+  case: verdict "short by 5" on a fully chained load, while the
+  cross-check's own read of the same close-up counted 4). CHAIN_
+  CLOSEUP now carries kind "tiedown_closeup" (was "chain_hint,"
+  presence only, heavy load types only) and ships in every
+  close-up pack. The full-frame chain prompt stays a hint.
+- Ingest dedupe (IoU >= 0.85, keep higher confidence) extended
+  from cargo to tiedown_closeup so a tie-down seen by both the
+  strap and chain prompts counts once. rules.tiedown_basis
+  docstring updated to match: chains count from close-ups, full-
+  frame hints still never count.
+- Proof: 184 tests green (2 new pack tests). The reel close-up
+  rerun counts 4 chains (0.68-0.80) and the verdict reads "short
+  by 1" against the declared 32 ft requirement of 5 — the frame
+  shows one face; the rest of the chains are outside it. Strap
+  regression: the ratchet-strap close-up still counts exactly 1.
+- Tests + Deploy workflows success on the commit; live /version
+  reports push46-chain-closeup.
