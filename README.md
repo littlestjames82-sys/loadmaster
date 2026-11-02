@@ -71,18 +71,19 @@ road, does it for them.
   drivers, EPI/CPS 2025; 28 percent of Hispanic adults are
   smartphone-dependent for internet, Pew 2025).
 - **Use of Meta AI Tooling (25%):** SAM 3.1 does the geometry
-  (segmentation, calibrated measurement), Muse Spark does two
-  distinct jobs: an independent second read of the photo that can
-  demote verdicts, and the plain-words report written strictly
-  from the engine's verdicts. Both models, two roles each, one
-  deterministic referee between them.
+  (segmentation, calibrated measurement), Muse Spark does three
+  jobs: an independent second read of the photo that can demote
+  verdicts, a locate read that names the load when SAM finds no
+  cargo (every detection still comes from SAM or the user), and
+  the plain-words report written strictly from the engine's
+  verdicts. Two models, one deterministic referee between them.
 - **Demo (25%):** the live app link above works right now; the
   gallery shows real runs with no upload; the 3-minute video shows
   a failing load, the fix, and the recheck flipping it to PASS.
 - **Technical Depth and Execution (20%):**
   docs/ARCHITECTURE.md (design decisions, including the measured
   reason straps are counted from close-ups plus tap marks, never
-  from full-frame guesses), 150 automated tests, examples/output/
+  from full-frame guesses), 184 automated tests, examples/output/
   (real pipeline artifacts), BUILD_LOG.md (the whole build, in
   the open).
 
@@ -103,7 +104,10 @@ the first one's work.
 - SAM 3.1 pipeline: prompt packs keyed to trailer type, load type,
   and photo role; parallel calls with retry; mask decoding; an
   editable detection model designed for tap-to-correct; annotated
-  overlay renders.
+  overlay renders. Cargo is prompted with several nouns per load
+  type (pallets, bagged goods, and scrap are first-class load
+  types), and duplicate finds across nouns are merged so one
+  stack counts once.
 - Calibrated measurements: bed-length calibration turns pixels into
   inches (rear overhang, load centroid vs axle position with an
   uncertainty range, tarp coverage, tie-down coverage gaps). The
@@ -113,6 +117,17 @@ the first one's work.
   citation) and a minimum fix, risk-ranked.
 - Dual-model cross-check: Muse Spark reads the photo independently;
   disagreement demotes a verdict to CHECK THIS, never upgrades one.
+  Spark also reads whether loose or escaped items are visible; a
+  yes is recorded on the tie-down verdict and can only demote it.
+- Cargo rescue: when SAM finds no cargo, Spark's locate read names
+  the load in a short noun phrase and SAM takes one more pass with
+  that noun. An absent load is a first-class answer, and Spark's
+  word alone never becomes a detection.
+- Photo intake: JPEG, PNG, WebP, HEIC, HEIF, AVIF, BMP, TIFF, GIF
+  (first frame), and MPO uploads are accepted and normalized to
+  JPEG. EXIF orientation is applied, oversize files and non-photos
+  are refused with the reason named, and analyses are rate limited
+  per client so the public link cannot drain the API credits.
 - Muse Spark report: a short, plain-words, fix-first summary written
   strictly from the verdicts (a template fallback covers any model
   failure). Available in English or Spanish, with a listen-aloud
@@ -124,14 +139,16 @@ the first one's work.
   are analyzed together and judged as one set, the way the rules
   engine was designed to see a load. The side view carries the
   measurements, the rear view judges lights and plate, close-ups
-  carry the tie-down count. Installable as a phone app (PWA).
+  carry the tie-down count, straps and chains alike (full-frame
+  sightings stay hints and never count). Installable as a phone
+  app (PWA).
 - Scoring harness (tools/score_runs.py): runs photo sets through the same path the app uses and diffs every verdict against expected statuses, built for the staged test set where the ground truth is known.
 - Measured on itself: across the 11 full runs captured during
   development (68 rule verdicts), the second opinion's independent
   answers are recorded in the evidence of 19 verdicts, and in the
   live close-up run its strap count disagreed with SAM's (2 vs 1)
   and moved the edge-protection verdict on its read alone.
-- 150 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
+- 184 automated tests (pytest), all passing. Architecture and design decisions: docs/ARCHITECTURE.md.
 - Hosted as a FastAPI app on Modal, deployed by GitHub Actions on
   every push to this repository.
 
@@ -188,6 +205,14 @@ Pre-window work was research only: a written spec grounded in 49 CFR
   delta, guided capture + quality gates, printable report card, and
   the judges' sample gallery. First real end-to-end use on a phone:
   a 19-bale hay load, every bale found, verdicts matching the photo.
+- Oct 27: field results page (/results) with every captured run
+  unedited, a one-tap sample run in the app, and broad photo format
+  support (HEIC, AVIF, and more) after a tester's real photo was
+  refused in the field for its format alone.
+- Oct 31: cargo nouns for unitized loads (pallets, bagged goods,
+  scrap), a Spark-guided cargo rescue for loads SAM cannot name, a
+  containment read that surfaces loose or escaped items, and chain
+  close-ups counted as tie-downs. 184 tests, all passing.
 
 Build progress is logged in BUILD_LOG.md in the order it happened.
 
@@ -198,7 +223,8 @@ Build progress is logged in BUILD_LOG.md in the order it happened.
   repository.
 - meta-sam-parser (Meta's SAM output parser) for mask decoding; the
   build log records the Day 1 route decision.
-- Pillow for image handling and overlay rendering.
+- Pillow for image handling and overlay rendering; pillow-heif for
+  HEIC, HEIF, and AVIF decoding.
 
 ## License
 
