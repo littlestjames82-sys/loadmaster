@@ -83,6 +83,46 @@ def test_bbox_iou():
     assert 0.80 < _bbox_iou([0, 0, 10, 10], [0, 0, 10, 9]) < 0.95
 
 
+def test_bbox_containment():
+    from loadmaster.pipeline import _bbox_containment
+    assert _bbox_containment([0, 0, 10, 10], [0, 0, 10, 10]) == 1.0
+    assert _bbox_containment([0, 0, 10, 10], [20, 20, 30, 30]) == 0.0
+    # A small box fully inside a big one: containment 1.0 even
+    # though IoU is low.
+    assert _bbox_containment([2, 2, 4, 4], [0, 0, 10, 10]) == 1.0
+    assert _bbox_iou([2, 2, 4, 4], [0, 0, 10, 10]) < 0.1
+    # Half of the smaller box inside: 0.5.
+    assert _bbox_containment([0, 0, 10, 10], [5, 0, 25, 10]) == 0.5
+
+
+def test_same_object_containment_pair_from_dev_photos():
+    # The measured push48 regression (Nov 1): on the chained lowboy
+    # photo the 'excavator' box sits entirely inside the loose
+    # 'construction vehicle' box (containment 1.00, IoU 0.46), so
+    # the IoU-only dedupe let one machine enter the set twice.
+    from loadmaster.pipeline import _same_object
+    tight = [337, 48, 2805, 1262]
+    loose = [70, 41, 3705, 1836]
+    assert _bbox_iou(tight, loose) < 0.85
+    assert _same_object(tight, loose)
+    # Genuinely separate objects stay separate.
+    assert not _same_object([0, 0, 10, 10], [20, 20, 30, 30])
+    assert not _same_object([0, 0, 10, 10], [8, 0, 30, 10])
+
+
+def test_keep_existing_rules():
+    from loadmaster.pipeline import _keep_existing
+    # IoU pair: higher confidence stays (long-standing rule).
+    assert _keep_existing([0, 0, 10, 10], 0.9, [0, 0, 10, 9], 0.5)
+    assert not _keep_existing([0, 0, 10, 10], 0.5, [0, 0, 10, 9], 0.9)
+    # Containment pair: the SMALLER box stays, whichever arrived
+    # first, because the container is the loose outline.
+    tight = [337, 48, 2805, 1262]
+    loose = [70, 41, 3705, 1836]
+    assert _keep_existing(tight, 0.61, loose, 0.92)
+    assert not _keep_existing(loose, 0.92, tight, 0.61)
+
+
 def _closeup_specs(load_type):
     return get_pack("flatbed", load_type, "closeup")
 

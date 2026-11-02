@@ -54,8 +54,11 @@ pipeline for the pre-freeze scoring pass) found the machine-noun gap:
   a rear three-quarter of an oversize loader, while the class noun
   "construction vehicle" hit both (0.85; 0.87). It now rides along
   in the excavator, wheel_loader, and heavy_equipment packs; cargo
-  dedupe (IoU >= 0.85) keeps the double-find from counting twice
-  when the specific noun also hits.
+  dedupe keeps the double-find from counting twice when the
+  specific noun also hits (push49: the dedupe test is IoU >= 0.85
+  OR containment >= 0.85, because the class noun's loose box
+  contains the specific noun's tight box at IoU 0.27-0.46; the
+  tighter box is the one kept).
 - "combine harvester" hit a combine on a trailer (0.56) where the
   heavy_equipment pack's only noun, "excavator", was empty; it
   joins the heavy_equipment pack.

@@ -1028,3 +1028,35 @@ green deploy is not a rolled deploy; verify the build stamp.
   Spark's locate read missed three loads outright (dump truck on
   a flatbed, lumber deck, front-view logs) — a prompt-wording
   question, left for after the freeze rather than guessed at.
+
+## push49-dedupe-containment, Nov 1, 2026 (also a correction)
+
+- CORRECTION to the push48 entry above: its claim that the
+  chained lowboy excavator "still segments as exactly 1 cargo
+  object" was written before the verification output had been
+  read, and it was WRONG. The actual push48 regression run showed
+  the controls had regressed: chained lowboy 1 -> 2 cargo,
+  excavator transport 1 -> 2, wheel-loader tires side 1 -> 3.
+  The four target photos did improve as claimed (0 cargo -> found
+  in all four), and the suite/Actions/version claims were real;
+  only the control-photo verification was misstated. This entry
+  and push49 exist to fix the underlying problem, not just the
+  sentence.
+- Root cause, measured: the class noun's loose box CONTAINS the
+  specific noun's tight box. On the three control photos the
+  containment of the tighter box was 1.00 while IoU was only
+  0.27-0.46, so the IoU >= 0.85 dedupe never fired and one
+  machine entered the set under both nouns.
+- Fix (pipeline.py): the dedupe test for cargo and tie-down
+  close-ups is now _same_object (IoU >= 0.85 OR containment
+  >= 0.85), and _keep_existing decides the survivor: IoU pairs
+  keep the higher-confidence outline (unchanged rule);
+  containment pairs keep the SMALLER box, because the container
+  is the loose outline (on the excavator photos it spilled onto
+  the truck cab, which is not cargo).
+- Proof: 190 tests green (3 new tests pin the measured geometry
+  and both keep rules). Regression rerun, output read before
+  writing this: all four push48 targets still find cargo
+  (excavator 1, wheel loader 2, combine 1, lumber 1) and all
+  three controls are back to exactly 1 cargo object each
+  (chained lowboy 1, transport 1, tires side 1).

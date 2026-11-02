@@ -41,7 +41,7 @@ app = modal.App("loadmaster")
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .pip_install_from_requirements(str(ROOT / "requirements.txt"))
-    .env({"LOADMASTER_BUILD": "push48-pack-nouns"})
+    .env({"LOADMASTER_BUILD": "push49-dedupe-containment"})
     .add_local_dir(
         str(ROOT / "loadmaster"), remote_path="/root/loadmaster", copy=True
     )

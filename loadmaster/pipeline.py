@@ -67,6 +67,45 @@ def _bbox_iou(a: list[float], b: list[float]) -> float:
     return inter / union if union > 0 else 0.0
 
 
+def _bbox_area(a: list[float]) -> float:
+    return max(0.0, a[2] - a[0]) * max(0.0, a[3] - a[1])
+
+
+def _bbox_containment(a: list[float], b: list[float]) -> float:
+    """Intersection over the SMALLER box's area: 1.0 when one box
+    sits entirely inside the other, however different their sizes."""
+    ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+    iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+    inter = ix * iy
+    smaller = min(_bbox_area(a), _bbox_area(b))
+    return inter / smaller if smaller > 0 else 0.0
+
+
+def _same_object(a: list[float], b: list[float]) -> bool:
+    """Two SAM boxes from different nouns in one pack are the same
+    object when they nearly coincide (IoU >= 0.85) OR when one
+    contains the other (containment >= 0.85). The containment half
+    exists because class nouns ('construction vehicle', added
+    push48) box a machine loosely while the specific noun boxes it
+    tightly: measured Nov 1 on three dev photos, containment of
+    the tighter box was 1.00 while IoU was only 0.27-0.46, so the
+    IoU-only rule let one machine enter the set twice."""
+    return _bbox_iou(a, b) >= 0.85 or _bbox_containment(a, b) >= 0.85
+
+
+def _keep_existing(existing_bbox, existing_conf, new_bbox, new_conf) -> bool:
+    """Decide whether the EXISTING detection stays when a dupe
+    arrives. Near-identical boxes (the IoU rule): the higher-
+    confidence outline stays, the long-standing behavior.
+    Containment pairs: the SMALLER box stays, because the
+    container is the loose outline (on the measured excavator
+    photos it spilled onto the truck cab, which is not cargo, and
+    keeping it would drag the cargo extent with it)."""
+    if _bbox_iou(existing_bbox, new_bbox) >= 0.85:
+        return (existing_conf or 0) >= (new_conf or 0)
+    return _bbox_area(existing_bbox) <= _bbox_area(new_bbox)
+
+
 def _scale_mask(raster: MaskRaster, sx: float, sy: float) -> dict:
     """Rescale a sent-space mask raster into original-image space and
     return its RLE dict for the detection record."""
@@ -132,11 +171,11 @@ def _ingest_results(ds, pack, results, orig_w, orig_h, wheel_boxes, run_record):
                 # higher confidence so counts are not doubled.
                 dupe = None
                 for existing in ds.by_kind(spec.kind):
-                    if existing.source == "sam" and _bbox_iou(existing.bbox, bbox) >= 0.85:
+                    if existing.source == "sam" and _same_object(existing.bbox, bbox):
                         dupe = existing
                         break
                 if dupe is not None:
-                    if (dupe.confidence or 0) >= (obj.confidence or 0):
+                    if _keep_existing(dupe.bbox, dupe.confidence, bbox, obj.confidence):
                         continue
                     ds.remove(dupe.id)
             polygon = []
