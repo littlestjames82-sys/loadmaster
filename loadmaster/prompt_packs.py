@@ -45,6 +45,22 @@ case) added the unitized-load findings:
   metal" (1 object, 0.79) and "junk pile" (2 objects, 0.73), where
   "scrap metal" and "metal scrap" returned empty. Scrap is its own
   load type now; "load" remains only for loose material.
+
+Third probe (Nov 1, 2026; the full 39-photo dev set run through the
+pipeline for the pre-freeze scoring pass) found the machine-noun gap:
+
+- "excavator" returned EMPTY on a clear side photo of a tracked
+  excavator on a step trailer, and "wheel loader" returned EMPTY on
+  a rear three-quarter of an oversize loader, while the class noun
+  "construction vehicle" hit both (0.85; 0.87). It now rides along
+  in the excavator, wheel_loader, and heavy_equipment packs; cargo
+  dedupe (IoU >= 0.85) keeps the double-find from counting twice
+  when the specific noun also hits.
+- "combine harvester" hit a combine on a trailer (0.56) where the
+  heavy_equipment pack's only noun, "excavator", was empty; it
+  joins the heavy_equipment pack.
+- "beams" returned EMPTY on a flatbed deck of lumber bundles while
+  "stack of lumber" hit (0.66); it joins the beams pack.
 """
 
 from __future__ import annotations
@@ -90,16 +106,29 @@ CARGO_PROMPTS: dict[str, list[PromptSpec]] = {
     "logs": [PromptSpec("logs", "cargo", "matrix: 7 log masks, 0.60-0.70")],
     "firewood": [PromptSpec("logs", "cargo", "firewood reads as logs; matrix: 0.60-0.70")],
     "hay": [PromptSpec("hay bales", "cargo", "specific noun for baled hay")],
-    "excavator": [PromptSpec("excavator", "cargo", "matrix: 0.61")],
-    "heavy_equipment": [PromptSpec("excavator", "cargo", "nearest validated noun; tap-to-correct covers other machines")],
-    "wheel_loader": [PromptSpec("wheel loader", "cargo", "specific noun for the machine")],
+    "excavator": [
+        PromptSpec("excavator", "cargo", "matrix: 0.61"),
+        PromptSpec("construction vehicle", "cargo", "probe Nov 1: 0.85 on a step-trailer excavator photo where 'excavator' returned empty"),
+    ],
+    "heavy_equipment": [
+        PromptSpec("excavator", "cargo", "nearest validated noun; tap-to-correct covers other machines"),
+        PromptSpec("construction vehicle", "cargo", "probe Nov 1: 0.85 / 0.87 on excavator and wheel-loader photos where the machine nouns returned empty"),
+        PromptSpec("combine harvester", "cargo", "probe Nov 1: 0.56 on a combine on a trailer where 'excavator' returned empty"),
+    ],
+    "wheel_loader": [
+        PromptSpec("wheel loader", "cargo", "specific noun for the machine"),
+        PromptSpec("construction vehicle", "cargo", "probe Nov 1: 0.87 on a rear oversize-loader photo where 'wheel loader' returned empty"),
+    ],
     "steel": [
         PromptSpec("steel frame", "cargo", "WEAK: matrix missed a rusty rack entirely; tap-to-correct expected"),
         PromptSpec("roll of steel", "cargo", "matrix-2: steel coil at 0.95, far above 'steel coil' (0.63)"),
     ],
     "vehicle": [PromptSpec("vehicle", "cargo", "specific noun; untested in matrix")],
     "skip_bin": [PromptSpec("container", "cargo", "specific noun for a skip/bin load")],
-    "beams": [PromptSpec("beams", "cargo", "specific noun for timber/steel beams")],
+    "beams": [
+        PromptSpec("beams", "cargo", "specific noun for timber/steel beams"),
+        PromptSpec("stack of lumber", "cargo", "probe Nov 1: 0.66 on a lumber-bundle deck photo where 'beams' returned empty"),
+    ],
     "loose_material": [PromptSpec("load", "cargo", "loose piles have no object noun; expect misses, tap-to-correct")],
     "pallets": [
         PromptSpec("pallet", "cargo", "matrix-2: warehouse pallets 0.87-0.94; barite stack up to 0.80"),

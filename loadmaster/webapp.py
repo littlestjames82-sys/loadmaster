@@ -341,7 +341,7 @@ def health() -> dict:
     return {"ok": True}
 
 
-BUILD_STAMP = "push46-chain-closeup"
+BUILD_STAMP = "push48-pack-nouns"
 
 
 @app.get("/version")

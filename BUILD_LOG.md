@@ -988,3 +988,43 @@ green deploy is not a rolled deploy; verify the build stamp.
   regression: the ratchet-strap close-up still counts exactly 1.
 - Tests + Deploy workflows success on the commit; live /version
   reports push46-chain-closeup.
+
+## push48-pack-nouns, Nov 1, 2026
+
+- Pre-freeze scoring pass: all 39 dev-set photos plus the six
+  field cases run through the current pipeline. Field cases scored
+  12/14 against their recorded expectations; the two misses were
+  the scrap photo declared as loose_material, where the push45
+  Spark rescue now segments the heap ('pile of scrap metal',
+  1 object at 0.79) and the geometry checks fire CHECK THIS on
+  real measurements that match the ground truth (no front
+  blocking; cart at the rear edge). The push44-era expectation
+  "loose_material stays all COULD NOT TELL" is superseded by the
+  rescue working as designed; no verdict invented.
+- The dev pass found the machine-noun gap: on clear photos of
+  machines, the specific cargo noun returned EMPTY from SAM while
+  Spark named the load correctly, so the run ended in avoidable
+  COULD NOT TELLs. A same-day noun probe on the failing photos
+  (the matrix method) found: 'construction vehicle' hit a
+  step-trailer excavator at 0.85 where 'excavator' was empty, and
+  an oversize wheel loader at 0.87 where 'wheel loader' was
+  empty; 'combine harvester' hit a trailered combine at 0.56
+  where heavy_equipment's only noun was empty; 'stack of lumber'
+  hit a lumber-bundle deck at 0.66 where 'beams' was empty.
+- Fix (prompt_packs.py only): 'construction vehicle' rides along
+  in the excavator, wheel_loader, and heavy_equipment packs;
+  'combine harvester' joins heavy_equipment; 'stack of lumber'
+  joins beams. Cargo dedupe (IoU >= 0.85) keeps a double find
+  from counting twice, verified live: the chained lowboy
+  excavator still segments as exactly 1 cargo object.
+- Proof: 187 tests green (3 new pack tests pin the additions).
+  End-to-end reruns: all four previously-missed photos now find
+  their cargo (excavator 1 via 'construction vehicle'; wheel
+  loader 2 via 'construction vehicle'; combine 1; lumber deck 1
+  via 'stack of lumber'); controls unchanged (lowboy excavator
+  rear 1, excavator transport 1, wheel-loader tires side 1).
+- Not fixed, by design: the modular-building front photo segments
+  under no noun probed (SAM limitation, honest COULD NOT TELL);
+  Spark's locate read missed three loads outright (dump truck on
+  a flatbed, lumber deck, front-view logs) — a prompt-wording
+  question, left for after the freeze rather than guessed at.

@@ -38,6 +38,33 @@ def test_scrap_pack_uses_scrap_nouns_and_is_loose():
     assert "scrap" in LOOSE_LOAD_TYPES
 
 
+def test_machine_packs_add_construction_vehicle():
+    # Nov 1 probe on the dev set: "excavator" returned empty on a
+    # step-trailer excavator photo and "wheel loader" returned empty
+    # on a rear oversize-loader photo, while "construction vehicle"
+    # hit both (0.85 / 0.87). The class noun rides along in every
+    # machine pack; the specific noun stays first.
+    for load_type in ("excavator", "wheel_loader", "heavy_equipment"):
+        prompts = _cargo_prompts(load_type)
+        assert "construction vehicle" in prompts, load_type
+    assert _cargo_prompts("excavator")[0] == "excavator"
+    assert _cargo_prompts("wheel_loader")[0] == "wheel loader"
+
+
+def test_heavy_equipment_pack_adds_combine_harvester():
+    # Nov 1 probe: "combine harvester" hit a combine on a trailer
+    # (0.56) where the pack's only noun, "excavator", was empty.
+    assert "combine harvester" in _cargo_prompts("heavy_equipment")
+
+
+def test_beams_pack_adds_stack_of_lumber():
+    # Nov 1 probe: "beams" returned empty on a lumber-bundle deck
+    # photo while "stack of lumber" hit (0.66).
+    prompts = _cargo_prompts("beams")
+    assert prompts[0] == "beams"
+    assert "stack of lumber" in prompts
+
+
 def test_steel_pack_adds_roll_of_steel():
     prompts = _cargo_prompts("steel")
     assert "steel frame" in prompts
