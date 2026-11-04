@@ -5,7 +5,7 @@ meta-sam-parser>=0.1.0
 Pillow>=10.0
 # HEIC/HEIF phone photos (and AVIF on Pillow builds without it):
 # registers the openers webapp uses at intake.
-pillow-heif>=0.20,<0.23
+pillow-heif>=1.8.1,<1.9
 # Tests only:
 pytest>=8.0
 # Web service + hosting (working app):
