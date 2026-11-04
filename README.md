@@ -1,5 +1,5 @@
 # LoadMaster
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![CI](https://github.com/littlestjames82-sys/loadmaster/actions/workflows/tests.yml/badge.svg)](https://github.com/littlestjames82-sys/loadmaster/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![CI](https://github.com/littlestjames82-sys/loadmaster/actions/workflows/tests.yml/badge.svg)](https://github.com/littlestjames82-sys/loadmaster/actions/workflows/tests.yml) [![Release](https://img.shields.io/github/v/release/littlestjames82-sys/loadmaster)](https://github.com/littlestjames82-sys/loadmaster/releases)
 
 LoadMaster checks a loaded trailer against the federal cargo
 securement rules (49 CFR Part 393, Subpart I) and tells the hauler, in
