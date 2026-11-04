@@ -7,7 +7,7 @@ Pillow>=10.0
 # registers the openers webapp uses at intake.
 pillow-heif>=0.20,<0.23
 # Tests only:
-pytest>=8.0
+pytest>=9.2.0
 # Web service + hosting (working app):
 fastapi>=0.110
 uvicorn>=0.29
