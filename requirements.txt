@@ -11,5 +11,5 @@ pytest>=8.0
 # Web service + hosting (working app):
 fastapi>=0.110
 uvicorn>=0.29
-python-multipart>=0.0.9
+python-multipart>=0.0.33
 modal>=0.62
