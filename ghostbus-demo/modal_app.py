@@ -62,6 +62,8 @@ image = (
     image=image,
     timeout=86400,  # web server lifetime cap; scaledown does the cost control
     scaledown_window=300,  # stay warm 5 min after the last request, then sleep
+    max_containers=1,  # ONE workspace: the relay store is in-memory, so a second
+    # container would serve a second, empty bus and scatter a watcher's polls.
     cpu=0.5,
     memory=512,
 )
