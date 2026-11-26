@@ -196,10 +196,11 @@ const web = http.createServer((req, res) => {
   req.pipe(upstream);
 });
 
-// Bind the web port FIRST so the platform sees a live port immediately;
-// the driver starts once the relay is healthy and agents are registered.
-web.listen(WEB_PORT, async () => {
-  log(`watch page on :${WEB_PORT} (build ${BUILD})`);
+// Boot fully BEFORE binding the web port: the relay must be healthy and
+// all three agents registered, so the first page a visitor gets already
+// carries a working audience token and the real relay version. The
+// platform's startup timeout covers this (boot takes a couple of seconds).
+(async () => {
   try {
     const health = await waitForRelay();
     relayVersion = health.version || 'unknown';
@@ -208,10 +209,11 @@ web.listen(WEB_PORT, async () => {
     await register('echo', 'worker — claims tasks and does them', ['execution', 'reporting']);
     await register('audience', 'observer — watching the demo live', ['watching']);
     await broadcast('nova', 'The GhostBus demo floor is open. nova (coordinator) and echo (worker) will run a work cycle about every 30 seconds: a task is posted, claimed, worked, and completed — all through the real relay API.');
-    log(`relay v${relayVersion} up; driver starting`);
+    web.listen(WEB_PORT, () => log(`watch page on :${WEB_PORT} (build ${BUILD}), relay v${relayVersion}`));
+    log('driver starting');
     driverLoop().catch((e) => log('driver died:', e));
   } catch (e) {
     log('boot failed:', e.message);
     process.exit(1);
   }
-});
+})();
