@@ -29,7 +29,7 @@ ROOT = Path(__file__).parent
 app = modal.App("ghostbus-demo")
 
 # Bump on every deploy that should be distinguishable live.
-BUILD = "2026-11-26-demo2"
+BUILD = "2026-11-26-demo3"
 
 image = (
     modal.Image.debian_slim(python_version="3.12")

@@ -6,173 +6,518 @@
 <title>GhostBus Relay — Live Demo</title>
 <style>
   :root {
-    --bg: #0b0e14; --panel: #131826; --panel2: #0f1320; --line: #232a3d;
-    --text: #e6eaf2; --dim: #8b94a7;
-    --accent: #8b7cf6; --green: #3fb96f; --amber: #e0a83c; --blue: #4f9dd8;
-    --pink: #d8739a; --red: #e05c5c;
+    --bg: #080a10; --panel: #10131c; --panel2: #0b0e16; --card: #151927;
+    --line: #202636; --line2: #2a3049;
+    --text: #e8ebf4; --dim: #8b94a7; --dim2: #5d6579;
+    --accent: #8b7cf6; --green: #43d17c; --amber: #e8a93d; --blue: #4f9dd8;
+    --pink: #c792ea; --red: #e05c5c;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
     background: var(--bg); color: var(--text);
     font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding: 14px 12px 40px; max-width: 760px; margin: 0 auto;
+    padding: 16px 14px 44px; max-width: 1280px; margin: 0 auto;
   }
-  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .ghost { font-size: 30px; }
-  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
-  .live-dot { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 8px currentColor; }
-  .dot.on { background: var(--green); color: var(--green); animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 0; }
-  .chip { font-size: 11.5px; color: var(--dim); background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; }
-  .chip b { color: var(--text); font-weight: 600; }
-  .explainer { color: var(--dim); font-size: 13.5px; margin: 12px 0 4px; }
-  .explainer b { color: var(--text); }
-  section { margin-top: 18px; }
-  h2 { font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--dim); margin: 0 0 8px; }
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
-  #feed { display: flex; flex-direction: column; gap: 8px; }
-  .ev { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--dim); border-radius: 10px; padding: 8px 11px; }
-  .ev .meta { font-size: 11.5px; color: var(--dim); display: flex; gap: 8px; flex-wrap: wrap; }
-  .ev .who { font-weight: 700; color: var(--text); }
-  .ev .body { margin-top: 2px; word-wrap: break-word; }
-  .ev.msg { border-left-color: var(--blue); }
-  .ev.task { border-left-color: var(--amber); }
-  .ev.done { border-left-color: var(--green); }
-  .ev.join { border-left-color: var(--accent); }
-  .ev.private { border: 1px dashed var(--pink); border-left: 3px solid var(--pink); background: #1a1220; }
-  .ev.private .body { color: #eec9da; }
-  .task-row { display: flex; gap: 8px; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); }
-  .task-row:last-child { border-bottom: none; }
-  .task-row .t { flex: 1; }
-  .task-row .result { color: var(--dim); font-size: 13px; display: block; margin-top: 1px; }
-  .status { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
-  .st-queued { background: #2a2417; color: var(--amber); }
-  .st-claimed, .st-in-progress { background: #17283a; color: var(--blue); }
-  .st-done, .st-completed { background: #17301f; color: var(--green); }
-  .st-needs-approval { background: #33192b; color: var(--pink); }
-  .agent-row { display: flex; gap: 8px; align-items: baseline; padding: 5px 0; }
-  .agent-row .role { color: var(--dim); font-size: 13px; }
-  .online { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; }
-  .offline { width: 8px; height: 8px; border-radius: 50%; background: var(--red); display: inline-block; }
+  /* ---------- header bar ---------- */
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 12px 16px;
+  }
+  .ghost { font-size: 28px; line-height: 1; }
+  .brand { font-size: 20px; font-weight: 700; letter-spacing: .2px; }
+  .brand .relay { font-weight: 400; color: var(--dim); margin-left: 6px; }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #12351f; color: var(--green); border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: 1.2px; padding: 4px 12px;
+  }
+  .live-pill .pdot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+  .live-pill.off { background: #3a1a1a; color: var(--red); }
+  .live-pill.off .pdot { background: var(--red); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+  .ver { color: var(--dim); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .conn { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; color: var(--dim); font-size: 13.5px; }
+  .conn .cdot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 7px var(--green); }
+  .conn.off .cdot { background: var(--red); box-shadow: none; }
+  .conn b { color: var(--text); font-weight: 600; }
+  .subline { color: var(--dim); font-size: 15px; margin: 14px 2px 0; }
+  /* ---------- scoreboard ---------- */
+  .score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 14px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 8px; text-align: center; }
+  .stat .num { font-size: 23px; font-weight: 700; display: block; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 10.5px; letter-spacing: .9px; text-transform: uppercase; color: var(--dim); display: block; margin-top: 2px; }
+  /* ---------- action panels (form + peek) ---------- */
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .panel h2, .col h2 { font-size: 12px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--dim); margin: 0 0 12px; font-weight: 600; }
+  .task-form { display: flex; gap: 8px; }
+  .task-form input { flex: 1; min-width: 0; background: var(--panel2); border: 1px solid var(--line2); border-radius: 10px; color: var(--text); padding: 11px 12px; font-size: 15px; }
+  .task-form input:focus { outline: 2px solid var(--accent); }
+  button.btn { background: var(--accent); color: #fff; border: none; border-radius: 10px; padding: 11px 16px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  button.btn.pink { background: #7c4dbd; }
+  .form-note { font-size: 13px; color: var(--dim); margin-top: 9px; min-height: 18px; }
+  .form-note.ok { color: var(--green); }
+  .peek-line { font-size: 13.5px; padding: 8px 0; border-bottom: 1px solid var(--line); word-wrap: break-word; }
+  .peek-line:last-child { border-bottom: none; }
+  .peek-line .verb { font-weight: 700; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; color: var(--dim); word-break: break-all; }
   .empty { color: var(--dim); font-size: 13.5px; padding: 6px 0; }
-  footer { color: var(--dim); font-size: 12.5px; margin-top: 26px; border-top: 1px solid var(--line); padding-top: 10px; }
+  /* ---------- three columns ---------- */
+  .cols { display: grid; grid-template-columns: 1.05fr 1.7fr 0.95fr; gap: 10px; margin-top: 10px; align-items: start; }
+  .col { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; min-width: 0; }
+  /* timeline */
+  .tl { position: relative; }
+  .tl::before { content: ""; position: absolute; left: 5px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+  .tl-row { position: relative; padding: 0 0 16px 24px; }
+  .tl-row:last-child { padding-bottom: 2px; }
+  .tl-dot { position: absolute; left: 0; top: 5px; width: 12px; height: 12px; border-radius: 50%; background: var(--dim); border: 2px solid var(--panel); z-index: 1; }
+  .tl-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .tl-top .tt { color: var(--text); font-weight: 600; }
+  .tl-top .tt2 { color: var(--dim2); }
+  .tl-text { font-size: 13.5px; color: var(--dim); margin-top: 1px; word-wrap: break-word; }
+  .tl-text b { color: var(--text); font-weight: 600; }
+  .tl-row.lock { background: #171126; border: 1px solid #3a2a63; border-radius: 10px; padding: 8px 10px 10px 34px; margin: 0 0 16px -8px; }
+  .tl-row.lock .tl-dot { display: none; }
+  .tl-lock { position: absolute; left: 8px; top: 9px; width: 17px; height: 17px; color: var(--pink); }
+  .tl-row.lock .tl-text { color: #cdbcf5; }
+  .tl-row.note .tl-text { color: #cdbcf5; }
+  /* task board */
+  .board { display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 12px; }
+  .bcol h3 { font-size: 11.5px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--dim); text-align: center; margin: 0 0 10px; font-weight: 600; }
+  .tcard { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .tcard .tid { font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tcard .ttitle { font-size: 14px; margin-top: 3px; word-wrap: break-word; }
+  .tcard .tmeta { font-size: 12.5px; color: var(--dim); margin-top: 4px; }
+  .tcard .tresult { font-size: 12.5px; color: var(--dim); margin-top: 5px; border-top: 1px solid var(--line); padding-top: 6px; word-wrap: break-word; }
+  .tcard .tresult .rs { color: var(--green); font-weight: 600; display: block; font-size: 11px; letter-spacing: .8px; text-transform: uppercase; margin-bottom: 2px; }
+  .tcard.visitor { border-color: var(--accent); }
+  .checkmark { color: var(--green); font-size: 15px; }
+  .claimed-feature { background: var(--panel2); border: 1px solid var(--line2); border-radius: 12px; padding: 14px 12px; text-align: center; }
+  .claimed-tag { display: inline-block; background: #2a2145; color: var(--pink); font-size: 11px; font-weight: 700; letter-spacing: 1.4px; border-radius: 999px; padding: 3px 12px; text-transform: uppercase; }
+  .lease-time { font-size: 52px; font-weight: 700; line-height: 1.1; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  .ring-wrap { position: relative; width: 128px; height: 128px; margin: 8px auto; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--line); stroke-width: 7; }
+  .ring-fg { fill: none; stroke: var(--green); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .lease-who { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 14px; color: var(--dim); }
+  .lease-who b { color: var(--text); }
+  .lease-who .odot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .lease-task { font-size: 13px; color: var(--dim); margin-top: 8px; word-wrap: break-word; }
+  .lease-task b { color: var(--text); }
+  .bempty { color: var(--dim2); font-size: 13px; text-align: center; padding: 12px 4px; border: 1px dashed var(--line); border-radius: 10px; }
+  /* agents */
+  .agent-card { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .agent-card:last-of-type { border-bottom: none; }
+  .avatar { position: relative; width: 44px; height: 44px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; color: #0d0f16; }
+  .avatar .odot { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: var(--green); border: 2px solid var(--panel); }
+  .avatar .odot.off { background: var(--red); }
+  .agent-info { min-width: 0; flex: 1; }
+  .agent-name { font-weight: 700; font-size: 15.5px; display: flex; gap: 8px; align-items: baseline; }
+  .you-tag { color: var(--amber); font-size: 12.5px; font-weight: 600; margin-left: auto; }
+  .role-chip { display: inline-block; background: var(--panel2); border: 1px solid var(--line2); color: var(--dim); border-radius: 7px; font-size: 12px; padding: 2px 8px; margin-top: 3px; }
+  .agents-note { display: flex; gap: 10px; align-items: flex-start; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-top: 14px; font-size: 13.5px; color: var(--dim); }
+  .agents-note svg { flex: none; width: 19px; height: 19px; color: var(--dim); margin-top: 1px; }
+  footer { color: var(--dim2); font-size: 12.5px; margin-top: 22px; padding: 0 2px; }
+  /* ---------- responsive ---------- */
+  @media (max-width: 1080px) {
+    .cols { grid-template-columns: 1fr 1fr; }
+    .col.agents-col { grid-column: 1 / -1; }
+  }
+  @media (max-width: 720px) {
+    .cols { grid-template-columns: 1fr; }
+    .actions { grid-template-columns: 1fr; }
+    .score { grid-template-columns: repeat(2, 1fr); }
+    .board { grid-template-columns: 1fr; }
+    .conn { margin-left: 0; }
+    .lease-time { font-size: 44px; }
+  }
 </style>
 </head>
 <body>
-<header>
+<header class="topbar">
   <div class="ghost">👻</div>
-  <h1>GhostBus Relay</h1>
-  <span class="live-dot"><span class="dot" id="dot"></span><span id="liveLabel">CONNECTING</span></span>
+  <div class="brand">GhostBus<span class="relay">Relay</span></div>
+  <span class="live-pill off" id="livePill"><span class="pdot"></span><span id="liveLabel">CONNECTING</span></span>
+  <span class="ver">v__VERSION__</span>
+  <span class="conn off" id="connBox"><span class="cdot"></span><span id="connText">Connecting…</span></span>
 </header>
-<div class="chips">
-  <span class="chip">GhostBus <b>v__VERSION__</b></span>
-  <span class="chip">build <b>__BUILD__</b></span>
-  <span class="chip">the real relay, running live</span>
+<p class="subline">Two agents coordinating. Direct messages remain private.</p>
+
+<div class="score" aria-label="Scoreboard since this demo booted">
+  <div class="stat"><span class="num" id="scCycles">–</span><span class="lbl">Cycles completed</span></div>
+  <div class="stat"><span class="num" id="scTasks">–</span><span class="lbl">Tasks completed</span></div>
+  <div class="stat"><span class="num" id="scMsgs">–</span><span class="lbl">Messages sent</span></div>
+  <div class="stat"><span class="num" id="scDms">–</span><span class="lbl">Private DMs kept hidden</span></div>
 </div>
-<p class="explainer">
-  Two agents — <b>nova</b> (coordinator) and <b>echo</b> (worker) — are doing real work
-  through this relay right now: tasks get posted, claimed, commented on, and completed
-  through the same public API any agent would use. You are connected as a third agent,
-  <b>audience</b>. When nova and echo exchange a <b>direct message</b>, it never reaches
-  this page — that confidentiality is new in GhostBus 0.6.0, and you can watch it hold.
-</p>
 
-<section>
-  <h2>Live event stream</h2>
-  <div id="feed"><div class="empty">Waiting for events… the next work cycle starts within about 30 seconds.</div></div>
-</section>
+<div class="actions">
+  <section class="panel">
+    <h2>Post a task for the agents</h2>
+    <form class="task-form" id="taskForm">
+      <input id="taskText" type="text" maxlength="140" placeholder="e.g. Write a haiku about the relay" autocomplete="off">
+      <button class="btn" id="taskBtn" type="submit">Post task</button>
+    </form>
+    <div class="form-note" id="formNote">Posts a real task to the bus as “guest”. echo drops the routine and picks yours up next — watch the board.</div>
+  </section>
 
-<section>
-  <h2>Tasks</h2>
-  <div class="panel" id="tasks"><div class="empty">Loading tasks…</div></div>
-</section>
+  <section class="panel">
+    <h2>Test the 0.6.0 confidentiality fix</h2>
+    <p style="margin:0 0 10px;font-size:13.5px;color:var(--dim)">nova and echo swap private rendezvous codes by direct message. Try to read them — as the audience, against the real API, live:</p>
+    <button class="btn pink" id="peekBtn" type="button">Try to read nova and echo's private messages</button>
+    <div id="peekOut" style="margin-top:6px"><div class="empty">Not attempted yet. The attempts are real requests to this relay — what you see is whatever it actually returns.</div></div>
+  </section>
+</div>
 
-<section>
-  <h2>Agents on the bus</h2>
-  <div class="panel" id="agents"><div class="empty">Loading agents…</div></div>
-</section>
+<main class="cols">
+  <section class="col">
+    <h2>Event Stream</h2>
+    <div class="tl" id="feed"><div class="empty">Waiting for events… the next work cycle starts within about 30 seconds.</div></div>
+  </section>
+
+  <section class="col">
+    <h2>Task Board</h2>
+    <div class="board">
+      <div class="bcol">
+        <h3>Open</h3>
+        <div id="boardOpen"><div class="bempty">Nothing open</div></div>
+      </div>
+      <div class="bcol">
+        <h3>Claimed</h3>
+        <div id="boardClaimed"></div>
+      </div>
+      <div class="bcol">
+        <h3>Done</h3>
+        <div id="boardDone"><div class="bempty">Nothing done yet</div></div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="col agents-col">
+    <h2>Agents</h2>
+    <div id="agents"><div class="empty">Loading agents…</div></div>
+    <div class="agents-note">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <span>Direct messages are private. Only participants can see content.</span>
+    </div>
+  </aside>
+</main>
 
 <footer>
-  Demo workspace with throwaway data — it resets when the container restarts, and no real
-  work passes through it. GhostBus is an open-source agent-to-agent message bus by
-  Ghost Developer Studio.
+  Demo workspace with throwaway data — it resets when the container restarts, and no real work passes
+  through it. Watching is the <b>audience</b> identity; posting is the separate <b>guest</b> identity.
+  GhostBus v__VERSION__, build __BUILD__ — an open-source agent-to-agent message bus by Ghost Developer Studio.
 </footer>
 
 <script>
   const AUDIENCE_TOKEN = "__AUDIENCE_TOKEN__";
+  const GUEST_TOKEN = "__GUEST_TOKEN__";
+  const LEASE_MS = 15 * 60 * 1000; // the relay's claim lease (CLAIM_LEASE_MS in GhostBus core)
+
   const feed = document.getElementById('feed');
-  const dot = document.getElementById('dot');
+  const livePill = document.getElementById('livePill');
   const liveLabel = document.getElementById('liveLabel');
-  let feedStarted = false;
+  const connBox = document.getElementById('connBox');
+  const connText = document.getElementById('connText');
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
   function timeOf(iso) {
-    try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' }); }
+    try { return new Date(iso).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
     catch { return ''; }
   }
-  function addEvent(ev) {
-    if (!feedStarted) { feed.innerHTML = ''; feedStarted = true; }
-    const div = document.createElement('div');
-    let cls = 'ev', body = ev.summary || '';
+  function ageOf(iso) {
+    const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 8) return 'just now';
+    if (s < 60) return Math.floor(s) + ' seconds ago';
+    if (s < 3600) { const m = Math.floor(s / 60); return m + (m === 1 ? ' minute ago' : ' minutes ago'); }
+    const h = Math.floor(s / 3600); return h + (h === 1 ? ' hour ago' : ' hours ago');
+  }
+  function isPrivateDm(e) {
+    return e.type === 'message.send' && e.to && e.to !== '*' && !('excerpt' in e);
+  }
+
+  /* ---------------- event stream (timeline) ---------------- */
+  let feedStarted = false;
+  const seenSeq = new Set();
+  let taskById = new Map();
+
+  function eventText(ev) {
+    if (isPrivateDm(ev)) return { lock: true, html: '<b>' + esc(ev.actor) + ' → ' + esc(ev.to) + '</b> · direct message redacted' };
     if (ev.type === 'message.send') {
-      cls += ' msg';
-      body = ev.excerpt || ev.summary || '';
-      if (typeof body === 'string' && body.startsWith('🔒')) cls += ' private';
-      if (ev.to && ev.to !== '*') body = '(direct message) ' + body;
-    } else if (ev.type === 'task.complete') { cls += ' task done'; }
-    else if (ev.type && ev.type.startsWith('task.')) { cls += ' task'; }
-    else if (ev.type && ev.type.startsWith('agent.')) { cls += ' join'; }
-    div.className = cls;
-    div.innerHTML = '<div class="meta"><span class="who">' + esc(ev.actor || 'system') + '</span>' +
-      '<span>' + esc(ev.type || '') + '</span><span>' + esc(timeOf(ev.at)) + '</span></div>' +
-      '<div class="body">' + esc(body) + '</div>';
-    feed.prepend(div);
+      const body = ev.excerpt || ev.summary || '';
+      if (body.startsWith('🔒')) return { note: true, html: esc(body) };
+      if (ev.to && ev.to !== '*') return { html: '<b>' + esc(ev.actor) + ' → ' + esc(ev.to) + '</b> · ' + esc(body) };
+      return { html: '<b>' + esc(ev.actor) + '</b> · ' + esc(body) };
+    }
+    if (ev.type === 'task.create') {
+      const m = /task #(\d+)/.exec(ev.summary || '');
+      const t = m ? taskById.get(Number(m[1])) : null;
+      const dest = t && t.assignee ? t.assignee : 'the board';
+      const title = t ? t.title : (ev.summary || '').replace(/^task #\d+:\s*/, '');
+      return { html: '<b>' + esc(ev.actor) + ' → ' + esc(dest) + '</b> · task proposed — ' + esc(title) };
+    }
+    if (ev.type === 'task.claim') {
+      const m = /task #(\d+)/.exec(ev.summary || '');
+      return { html: '<b>' + esc(ev.actor) + '</b> · claimed task' + (m ? ' #' + m[1] : '') + ' · lease acquired' };
+    }
+    if (ev.type === 'task.complete') {
+      const m = /task #(\d+)/.exec(ev.summary || '');
+      return { html: '<b>' + esc(ev.actor) + '</b> · task' + (m ? ' #' + m[1] : '') + ' completed · result stored' };
+    }
+    return { html: esc(ev.summary || ev.type || '') };
+  }
+  function dotColor(ev) {
+    if (ev.type === 'task.complete' || (ev.type && ev.type.startsWith('agent.'))) return 'var(--green)';
+    if (ev.type === 'task.comment') return 'var(--amber)';
+    if (ev.type === 'message.send') return 'var(--blue)';
+    if (ev.type && ev.type.startsWith('task.')) return 'var(--blue)';
+    return 'var(--dim)';
+  }
+  const LOCK_SVG = '<svg class="tl-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>';
+  function addEvent(ev, prepend = true) {
+    if (ev.seq != null) { if (seenSeq.has(ev.seq)) return; seenSeq.add(ev.seq); }
+    if (!feedStarted) { feed.innerHTML = ''; feedStarted = true; }
+    const info = eventText(ev);
+    const div = document.createElement('div');
+    div.className = 'tl-row' + (info.lock ? ' lock' : '') + (info.note ? ' note' : '');
+    const t = timeOf(ev.at);
+    div.innerHTML = (info.lock ? LOCK_SVG : '<span class="tl-dot" style="background:' + dotColor(ev) + '"></span>') +
+      '<div class="tl-top"><span class="tt">' + esc(t) + '</span><span class="tt2">' + esc(t) + '</span></div>' +
+      '<div class="tl-text">' + info.html + '</div>';
+    if (prepend) feed.prepend(div); else feed.appendChild(div);
     while (feed.children.length > 60) feed.removeChild(feed.lastChild);
+    if (isPrivateDm(ev)) bumpNum('scDms');
+    if (ev.type === 'task.complete') bumpNum('scTasks');
+  }
+
+  async function seedFeed() {
+    try {
+      const r = await fetch('/api/events?limit=40&agent=audience', { headers: { 'x-agent-token': AUDIENCE_TOKEN } });
+      const d = await r.json();
+      const evs = (d.events || []).slice(-25);
+      for (const ev of evs) addEvent(ev); // chronological -> prepend leaves newest on top
+    } catch { /* stream will fill it in */ }
   }
 
   const TYPES = ['message.send', 'task.create', 'task.claim', 'task.comment', 'task.complete',
-    'task.approve', 'task.cancel', 'agent.join', 'agent.rejoin', 'file.put', 'file.delete',
+    'task.approve', 'task.cancel', 'task.claim_expired', 'agent.join', 'agent.rejoin', 'file.put', 'file.delete',
     'context.put', 'capsule.create', 'capsule.update'];
-  const streamUrl = '/api/stream?agent=audience&token=' + encodeURIComponent(AUDIENCE_TOKEN);
-  const es = new EventSource(streamUrl);
-  es.addEventListener('ready', () => { dot.classList.add('on'); liveLabel.textContent = 'LIVE'; });
-  es.onopen = () => { dot.classList.add('on'); liveLabel.textContent = 'LIVE'; };
-  es.onerror = () => { dot.classList.remove('on'); liveLabel.textContent = 'RECONNECTING'; };
+  function setLive(on, label) {
+    livePill.classList.toggle('off', !on);
+    liveLabel.textContent = label;
+    connBox.classList.toggle('off', !on);
+    if (!on) connText.textContent = label.charAt(0) + label.slice(1).toLowerCase() + '…';
+  }
+  const es = new EventSource('/api/stream?agent=audience&token=' + encodeURIComponent(AUDIENCE_TOKEN));
+  es.addEventListener('ready', () => setLive(true, 'LIVE'));
+  es.onopen = () => setLive(true, 'LIVE');
+  es.onerror = () => setLive(false, 'RECONNECTING');
   for (const t of TYPES) es.addEventListener(t, (e) => { try { addEvent(JSON.parse(e.data)); } catch { /* keep going */ } });
+
+  /* ---------------- connection latency (real /health round trips) ---------------- */
+  async function pollLatency() {
+    const t0 = performance.now();
+    try {
+      const r = await fetch('/health', { cache: 'no-store' });
+      if (!r.ok) throw new Error('bad');
+      const ms = performance.now() - t0;
+      connBox.classList.remove('off');
+      connText.innerHTML = '<b>Connected</b>&nbsp; ' + (ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : Math.round(ms) + ' ms');
+    } catch {
+      connBox.classList.add('off');
+      connText.textContent = 'Unreachable — retrying…';
+    }
+  }
+
+  /* ---------------- task board ---------------- */
+  let featuredClaim = null; // {task, expiresAtMs}
+  function taskCard(t, opts = {}) {
+    const who = t.status === 'done' ? (t.claimedBy || t.from) : (t.assignee || t.from);
+    const when = t.status === 'done' ? t.updatedAt : t.createdAt;
+    return '<div class="tcard' + (t.from === 'guest' ? ' visitor' : '') + '">' +
+      '<div class="tid"><span>#' + t.id + '</span>' + (t.status === 'done' ? '<span class="checkmark">✓</span>' : '') + '</div>' +
+      '<div class="ttitle">' + esc(t.title) + '</div>' +
+      '<div class="tmeta">' + esc(who) + ' · ' + esc(ageOf(when)) + (t.from === 'guest' ? ' · posted by a visitor' : '') + '</div>' +
+      (t.status === 'done' && t.result ? '<div class="tresult"><span class="rs">Result stored</span>' + esc(t.result) + '</div>' : '') +
+      '</div>';
+  }
+  function renderBoard(tasks) {
+    taskById = new Map(tasks.map((t) => [t.id, t]));
+    const open = tasks.filter((t) => t.status === 'queued' || t.status === 'needs-approval');
+    const claimed = tasks.filter((t) => t.status === 'claimed');
+    const done = tasks.filter((t) => t.status === 'done');
+    document.getElementById('boardOpen').innerHTML =
+      open.slice(0, 5).map((t) => taskCard(t)).join('') || '<div class="bempty">Nothing open</div>';
+    document.getElementById('boardDone').innerHTML =
+      done.slice(0, 4).map((t) => taskCard(t)).join('') || '<div class="bempty">Nothing done yet</div>';
+    const box = document.getElementById('boardClaimed');
+    if (claimed.length) {
+      const f = claimed.slice().sort((a, b) => new Date(a.claimExpiresAt || 0) - new Date(b.claimExpiresAt || 0))[0];
+      featuredClaim = { task: f, expiresAtMs: f.claimExpiresAt ? new Date(f.claimExpiresAt).getTime() : null };
+      box.innerHTML =
+        '<div class="claimed-feature"><span class="claimed-tag">Claimed</span>' +
+        '<div class="lease-time" id="leaseTime">--:--</div>' +
+        '<div class="ring-wrap"><svg width="128" height="128" viewBox="0 0 120 120">' +
+        '<circle class="ring-bg" cx="60" cy="60" r="52"></circle>' +
+        '<circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52" stroke-dasharray="326.73" stroke-dashoffset="0"></circle>' +
+        '</svg></div>' +
+        '<div class="lease-who"><b>' + esc(f.claimedBy || '') + '</b><span class="odot"></span><span>lease remaining</span></div>' +
+        '<div class="lease-task">#' + f.id + ' · <b>' + esc(f.title) + '</b></div></div>' +
+        claimed.filter((t) => t.id !== f.id).map((t) => taskCard(t)).join('');
+      tickLease();
+    } else {
+      featuredClaim = null;
+      box.innerHTML = '<div class="bempty">No active claim — the next one appears here with its lease countdown</div>';
+    }
+  }
+  function tickLease() {
+    if (!featuredClaim) return;
+    const timeEl = document.getElementById('leaseTime');
+    const ring = document.getElementById('ringFg');
+    if (!timeEl || !ring) return;
+    if (!featuredClaim.expiresAtMs) { timeEl.textContent = '--:--'; return; }
+    const remain = Math.max(0, featuredClaim.expiresAtMs - Date.now());
+    const s = Math.ceil(remain / 1000);
+    timeEl.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    ring.style.strokeDashoffset = (326.73 * (1 - Math.min(1, remain / LEASE_MS))).toFixed(1);
+  }
+  setInterval(tickLease, 1000);
 
   async function pollTasks() {
     try {
       const r = await fetch('/api/tasks');
       const d = await r.json();
-      const tasks = (d.tasks || []).slice().sort((a, b) => b.id - a.id).slice(0, 6);
-      const box = document.getElementById('tasks');
-      if (!tasks.length) { box.innerHTML = '<div class="empty">No tasks yet — first cycle is coming up.</div>'; return; }
-      box.innerHTML = tasks.map((t) =>
-        '<div class="task-row"><span class="status st-' + esc(t.status) + '">' + esc(t.status) + '</span>' +
-        '<span class="t">#' + t.id + ' ' + esc(t.title) +
-        (t.result ? '<span class="result">✓ ' + esc(t.result) + '</span>' : '') +
-        '</span></div>').join('');
+      renderBoard(d.tasks || []);
     } catch { /* transient */ }
+  }
+
+  /* ---------------- agents roster ---------------- */
+  function hueFor(name) {
+    let h = 0; for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) % 360;
+    return h;
   }
   async function pollAgents() {
     try {
       const r = await fetch('/api/agents');
       const d = await r.json();
       const box = document.getElementById('agents');
-      box.innerHTML = (d.agents || []).map((a) =>
-        '<div class="agent-row"><span class="' + (a.online ? 'online' : 'offline') + '"></span>' +
-        '<b>' + esc(a.name) + '</b><span class="role">' + esc(a.role || '') + '</span></div>').join('') ||
+      const list = d.agents || [];
+      box.innerHTML = list.map((a) =>
+        '<div class="agent-card">' +
+        '<div class="avatar" style="background:hsl(' + hueFor(a.name) + ' 45% 68%)">' + esc(String(a.name).charAt(0)) +
+        '<span class="odot' + (a.online ? '' : ' off') + '"></span></div>' +
+        '<div class="agent-info"><div class="agent-name">' + esc(a.name) +
+        (a.name === 'audience' ? '<span class="you-tag">you</span>' : '') + '</div>' +
+        '<span class="role-chip">' + esc(a.role || '') + '</span></div></div>').join('') ||
         '<div class="empty">No agents yet.</div>';
     } catch { /* transient */ }
   }
-  pollTasks(); pollAgents();
+
+  /* ---------------- scoreboard (real relay API state) ---------------- */
+  function bumpNum(id) {
+    const el = document.getElementById(id);
+    const n = parseInt(el.textContent, 10);
+    if (!Number.isNaN(n)) el.textContent = n + 1;
+  }
+  async function pollScore() {
+    try {
+      const [st, tk, ev] = await Promise.all([
+        fetch('/api/status').then((r) => r.json()),
+        fetch('/api/tasks').then((r) => r.json()),
+        fetch('/api/events?limit=500&agent=audience', { headers: { 'x-agent-token': AUDIENCE_TOKEN } }).then((r) => r.json()),
+      ]);
+      const tasks = tk.tasks || [];
+      const done = tasks.filter((t) => t.status === 'done');
+      document.getElementById('scTasks').textContent = done.length;
+      document.getElementById('scCycles').textContent = done.filter((t) => t.from === 'nova').length;
+      if (typeof st.messages === 'number') document.getElementById('scMsgs').textContent = st.messages;
+      document.getElementById('scDms').textContent = (ev.events || []).filter(isPrivateDm).length;
+    } catch { /* transient */ }
+  }
+
+  /* ---------------- visitor task form (posts as "guest") ---------------- */
+  document.getElementById('taskForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('taskText');
+    const note = document.getElementById('formNote');
+    const btn = document.getElementById('taskBtn');
+    const text = input.value.trim();
+    if (!text) { note.textContent = 'Type a task first — anything you want the agents to do.'; note.className = 'form-note'; return; }
+    btn.disabled = true;
+    note.textContent = 'Posting to the bus…'; note.className = 'form-note';
+    try {
+      const r = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-agent-token': GUEST_TOKEN },
+        body: JSON.stringify({ agent: 'guest', title: text, body: 'Posted by a visitor from the live watch page.', assignee: 'echo' }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+      const t = d.task || d;
+      note.textContent = 'Posted as task #' + t.id + ' — watch the board: echo claims it next, ahead of the routine work.';
+      note.className = 'form-note ok';
+      input.value = '';
+      pollTasks();
+    } catch (err) {
+      note.textContent = 'Posting failed: ' + err.message + ' — try again in a moment.';
+      note.className = 'form-note';
+    }
+    setTimeout(() => { btn.disabled = false; }, 3000);
+  });
+
+  /* ---------------- try-to-peek panel (real attempts, real answers) ---------------- */
+  document.getElementById('peekBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('peekBtn');
+    const out = document.getElementById('peekOut');
+    btn.disabled = true;
+    out.innerHTML = '<div class="peek-line">Running the attempts against the live relay…</div>';
+    const lines = [];
+    // Attempt 1: full-text search for the DM marker, as the audience.
+    try {
+      const r = await fetch('/api/search?q=rendezvous&agent=audience', { headers: { 'x-agent-token': AUDIENCE_TOKEN } });
+      const d = await r.json().catch(() => ({}));
+      const nm = (d.messages || []).length, nt = (d.tasks || []).length, nf = (d.files || []).length;
+      lines.push('<div class="peek-line"><span class="verb">Search</span> <span class="mono">GET /api/search?q=rendezvous (as audience)</span><br>→ HTTP ' + r.status + ' — <b>' + nm + ' messages</b>, ' + nt + ' tasks, ' + nf + ' files. The rendezvous codes live in direct messages, and search only sees what the audience may see.</div>');
+    } catch (err) {
+      lines.push('<div class="peek-line"><span class="verb">Search</span> — the request itself failed in the browser: ' + esc(err.message) + '</div>');
+    }
+    // Attempt 2: open the event stream posing as nova, with NO token.
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 3000);
+      let status = 0, txt = '';
+      try {
+        const r = await fetch('/api/stream?agent=nova', { signal: ctl.signal });
+        status = r.status;
+        txt = (await r.text().catch(() => '')).slice(0, 180);
+      } catch (err) {
+        if (status === 0) throw err; // failed before any response arrived
+        // an abort while reading a 200 stream body lands here — handled below
+      } finally { clearTimeout(timer); }
+      if (status === 200) {
+        lines.push('<div class="peek-line"><span class="verb">Stream</span> <span class="mono">GET /api/stream?agent=nova (no token — posing as nova)</span><br>→ HTTP 200 — the stream OPENED without a token. That should not happen on 0.6.0.</div>');
+      } else {
+        lines.push('<div class="peek-line"><span class="verb">Stream</span> <span class="mono">GET /api/stream?agent=nova (no token — posing as nova)</span><br>→ HTTP ' + status + (txt ? ' — <span class="mono">' + esc(txt) + '</span>' : '') + '<br>Refused: since 0.6.0 the stream demands the agent\'s own token, so a name in the URL proves nothing.</div>');
+      }
+    } catch (err) {
+      lines.push('<div class="peek-line"><span class="verb">Stream</span> — the request itself failed in the browser: ' + esc(err.message) + '</div>');
+    }
+    lines.push('<div class="peek-line">Before 0.6.0, both of these handed other agents\' direct messages to anyone holding the workspace key. Now the content stays between nova and echo — from out here, you only ever see that a message passed.</div>');
+    out.innerHTML = lines.join('');
+    btn.disabled = false;
+  });
+
+  /* ---------------- go ---------------- */
+  seedFeed();
+  pollTasks(); pollAgents(); pollScore(); pollLatency();
   setInterval(pollTasks, 4000);
   setInterval(pollAgents, 10000);
+  setInterval(pollScore, 5000);
+  setInterval(pollLatency, 10000);
 </script>
 </body>
 </html>

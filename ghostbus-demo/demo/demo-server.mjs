@@ -3,15 +3,18 @@
  * GhostBus live-demo wrapper.
  *
  * Runs the REAL GhostBus relay (src/http-server.mjs from the ghostbus
- * package, unmodified) as a subprocess on a private port, registers three
- * agents on it (nova = coordinator, echo = worker, audience = observer),
- * drives a legible work cycle over the relay's real REST API, and serves
- * a public watch page on WEB_PORT. Everything else on WEB_PORT is proxied
- * through to the relay, so the page talks to the genuine /api/* surface.
+ * package, unmodified) as a subprocess on a private port, registers four
+ * agents on it (nova = coordinator, echo = worker, audience = observer,
+ * guest = the watch page's posting identity), drives a legible work cycle
+ * over the relay's real REST API, and serves a public watch page on
+ * WEB_PORT. Everything else on WEB_PORT is proxied through to the relay,
+ * so the page talks to the genuine /api/* surface.
  *
  * Token enforcement is ON in the relay (GHOSTBUS_REQUIRE_TOKENS=1). The
- * audience agent's token is embedded in the watch page: this is a
+ * audience and guest tokens are embedded in the watch page: this is a
  * throwaway demo workspace with generated credentials and no real data.
+ * Watching and posting are separate identities on purpose: "audience"
+ * only ever observes, "guest" only ever posts tasks.
  */
 import http from 'node:http';
 import fs from 'node:fs';
@@ -110,15 +113,79 @@ async function broadcast(from, body) {
   return api('/api/messages', { method: 'POST', token: agents[from], body: { agent: from, to: '*', body, channel: 'general' } });
 }
 
+// ------------------------------------------------------- visitor task queue
+// The watch page posts REAL tasks to the bus as the "guest" agent. A
+// poller watches for them and the driver works them BEFORE the next
+// canned item: echo claims the visitor's task, comments on it, and
+// completes it with a result that quotes the visitor's own words.
+const visitorSeen = new Set();
+const visitorQueue = [];
+
+async function pollVisitorTasks() {
+  for (;;) {
+    try {
+      const d = await api('/api/tasks');
+      for (const t of d.tasks || []) {
+        if (t.from === 'guest' && t.status === 'queued' && !visitorSeen.has(t.id)) {
+          visitorSeen.add(t.id);
+          visitorQueue.push(t.id);
+          log(`visitor task spotted: #${t.id} "${t.title}"`);
+        }
+      }
+    } catch { /* transient — try again next tick */ }
+    await sleep(2500);
+  }
+}
+
+async function nextVisitorTask() {
+  while (visitorQueue.length) {
+    const id = visitorQueue.shift();
+    try {
+      const d = await api('/api/tasks');
+      const t = (d.tasks || []).find((x) => x.id === id);
+      if (t && t.status === 'queued') return t;
+    } catch { /* fall through and try the next queued id */ }
+  }
+  return null;
+}
+
+async function workVisitorTask(t) {
+  const title = t.title;
+  await broadcast('nova', `📥 A visitor just posted a task from the watch page: "${title}". It jumps the queue — echo is taking it next, ahead of the routine work.`);
+  await sleep(2500);
+  await api(`/api/tasks/${t.id}/claim`, { method: 'POST', token: agents.echo, body: { agent: 'echo' } });
+  await sleep(2500);
+  await api(`/api/tasks/${t.id}/comment`, { method: 'POST', token: agents.echo, body: { agent: 'echo', body: `Picked up the visitor's task — working on "${title}" now.` } });
+  await sleep(3500);
+  await api(`/api/tasks/${t.id}/comment`, { method: 'POST', token: agents.echo, body: { agent: 'echo', body: 'Still on it. A visitor-posted task gets the same full lifecycle as any work on this bus: claimed, commented, completed, and recorded in the log.' } });
+  await sleep(3500);
+  await api(`/api/tasks/${t.id}/complete`, { method: 'POST', token: agents.echo, body: { agent: 'echo', result: `Done — "${title}" was claimed, worked, and completed by echo through the real relay API, at a visitor's request from the watch page.` } });
+  await sleep(2000);
+  await broadcast('nova', `Visitor task #${t.id} complete: "${title}". The form on the watch page stays open — post another any time.`);
+}
+
 async function driverLoop() {
   let n = 0;
   for (;;) {
+    // Visitor tasks outrank the canned rotation — check before anything.
+    const vt = await nextVisitorTask().catch(() => null);
+    if (vt) {
+      try { await workVisitorTask(vt); } catch (e) { log('visitor task error:', e.message); }
+      continue;
+    }
     n += 1;
     cycleCount = n;
     const work = WORK[(n - 1) % WORK.length];
     try {
       await api('/api/heartbeat', { method: 'POST', token: agents.nova, body: { agent: 'nova' } }).catch(() => {});
       await api('/api/heartbeat', { method: 'POST', token: agents.echo, body: { agent: 'echo' } }).catch(() => {});
+
+      // One more check before committing to the canned item — a task a
+      // visitor posted during the heartbeats still goes first.
+      const late = await nextVisitorTask().catch(() => null);
+      if (late) {
+        try { await workVisitorTask(late); } catch (e) { log('visitor task error:', e.message); }
+      }
 
       await broadcast('nova', `Cycle ${n}: new work dropping — "${work.title}". Posting it to the board now.`);
       await sleep(3000);
@@ -151,7 +218,12 @@ async function driverLoop() {
     } catch (e) {
       log('cycle error:', e.message);
     }
-    await sleep(CYCLE_MS - 24_000 > 0 ? CYCLE_MS - 24_000 : 3000);
+    // Interruptible tail sleep: a visitor task cuts the wait short.
+    const tail = CYCLE_MS - 24_000 > 0 ? CYCLE_MS - 24_000 : 3000;
+    for (let waited = 0; waited < tail; waited += 1000) {
+      if (visitorQueue.length) break;
+      await sleep(Math.min(1000, tail - waited));
+    }
   }
 }
 
@@ -161,6 +233,7 @@ const pageTemplate = fs.readFileSync(path.join(HERE, 'watch.html'), 'utf8');
 function renderPage() {
   return pageTemplate
     .replaceAll('__AUDIENCE_TOKEN__', agents.audience || '')
+    .replaceAll('__GUEST_TOKEN__', agents.guest || '')
     .replaceAll('__BUILD__', BUILD)
     .replaceAll('__VERSION__', relayVersion);
 }
@@ -208,10 +281,12 @@ const web = http.createServer((req, res) => {
     await register('nova', 'coordinator — finds work, posts tasks, reports back', ['planning', 'coordination']);
     await register('echo', 'worker — claims tasks and does them', ['execution', 'reporting']);
     await register('audience', 'observer — watching the demo live', ['watching']);
-    await broadcast('nova', 'The GhostBus demo floor is open. nova (coordinator) and echo (worker) will run a work cycle about every 30 seconds: a task is posted, claimed, worked, and completed — all through the real relay API.');
+    await register('guest', 'visitor — posts tasks from the watch page', ['posting']);
+    await broadcast('nova', 'The GhostBus demo floor is open. nova (coordinator) and echo (worker) will run a work cycle about every 30 seconds: a task is posted, claimed, worked, and completed — all through the real relay API. Visitors: the form on the watch page posts a real task as "guest", and echo takes those first.');
     web.listen(WEB_PORT, () => log(`watch page on :${WEB_PORT} (build ${BUILD}), relay v${relayVersion}`));
     log('driver starting');
     driverLoop().catch((e) => log('driver died:', e));
+    pollVisitorTasks().catch((e) => log('visitor poller died:', e));
   } catch (e) {
     log('boot failed:', e.message);
     process.exit(1);
