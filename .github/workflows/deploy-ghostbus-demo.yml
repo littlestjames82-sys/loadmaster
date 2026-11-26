@@ -1,0 +1,30 @@
+name: Deploy GhostBus Demo to Modal
+
+# Deploys the GhostBus live watch demo (ghostbus-demo/modal_app.py) to
+# Ryan's Modal workspace, using the same MODAL_TOKEN_ID /
+# MODAL_TOKEN_SECRET repo secrets as the LoadMaster deploy. The GhostBus
+# relay source is checked out fresh from the public ghostbus repo at the
+# v0.6.0 tag — the demo ships the published code, unmodified.
+# Manual dispatch only, so unrelated pushes never redeploy the demo.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: littlestjames82-sys/ghostbus
+          ref: v0.6.0
+          path: ghostbus-demo/ghostbus-src
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install modal
+      - run: modal deploy ghostbus-demo/modal_app.py
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
